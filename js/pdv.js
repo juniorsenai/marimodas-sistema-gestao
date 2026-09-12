@@ -405,7 +405,7 @@ function openReceiptModal(sale) {
 
   receiptContent.innerHTML = `
     <div style="text-align:center; margin-bottom:12px;">
-      <h2 style="font-size:1.2rem; margin:0;">🛍️ ModaGestão</h2>
+      <h2 style="font-size:1.2rem; margin:0;">🛍️ MARIMODAS</h2>
       <p style="color:#666; font-size:0.85rem; margin:4px 0;">Comprovante de Venda</p>
       <hr style="border:none; border-top:1px dashed #ccc; margin:8px 0;">
       <p style="font-size:0.8rem; color:#444;">${dateStr} às ${timeStr}</p>
@@ -437,6 +437,11 @@ function closeReceiptModal() {
 }
 
 function printReceipt() {
+  const originalTitle = document.title;
+  document.title = 'MARIMODAS | Comprovante de Venda';
+  window.addEventListener('afterprint', () => {
+    document.title = originalTitle;
+  }, { once: true });
   window.print();
 }
 
