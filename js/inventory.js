@@ -1,0 +1,323 @@
+/* ==========================================================================
+   ModaGestão - Módulo de Gestão de Estoque & Produtos
+   Listagem, cadastro de peças, variantes de tamanhos/cores e impressão de etiquetas
+   ========================================================================== */
+
+let allProducts = [];
+let currentEditingProductId = null;
+let currentProductImage = '';
+
+// Escutar lista de produtos em tempo real no Firestore
+function loadProducts() {
+  db.collection('products').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+    allProducts = [];
+    snapshot.forEach(doc => {
+      allProducts.push({ id: doc.id, ...doc.data() });
+    });
+
+    renderProductsUI();
+    if (window.updateDashboardStats) window.updateDashboardStats();
+    if (window.renderPDVCatalog) window.renderPDVCatalog();
+  }, error => {
+    console.error("Erro ao carregar produtos:", error);
+    showToast("Erro ao sincronizar produtos do banco.", "danger");
+  });
+}
+
+// Renderizar Tabela/Grade de Produtos com Filtros
+function renderProductsUI() {
+  const tableBody = document.getElementById('products-table-body');
+  const searchInput = document.getElementById('inventory-search');
+  const categoryFilter = document.getElementById('inventory-category-filter');
+  const sizeFilter = document.getElementById('inventory-size-filter');
+  
+  if (!tableBody) return;
+
+  const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const categoryVal = categoryFilter ? categoryFilter.value : '';
+  const sizeVal = sizeFilter ? sizeFilter.value : '';
+
+  // Filtragem dos produtos
+  const filteredProducts = allProducts.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchVal) ||
+                          (p.barcode && p.barcode.toLowerCase().includes(searchVal)) ||
+                          (p.color && p.color.toLowerCase().includes(searchVal));
+    const matchesCategory = !categoryVal || p.category === categoryVal;
+    const matchesSize = !sizeVal || p.size === sizeVal;
+
+    return matchesSearch && matchesCategory && matchesSize;
+  });
+
+  tableBody.innerHTML = '';
+
+  if (filteredProducts.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+          <i class="fa-solid fa-shirt" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+          Nenhum produto cadastrado ou encontrado com os filtros aplicados.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  filteredProducts.forEach(p => {
+    const isLowStock = p.stockQty <= (p.minStock || 2);
+    const stockBadge = isLowStock 
+      ? `<span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> ${p.stockQty} un (Baixo)</span>`
+      : `<span class="badge badge-success">${p.stockQty} un</span>`;
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>
+        <div class="inventory-product-cell">
+          ${p.imageUrl ? `<img src="${escapeHtml(p.imageUrl)}" alt="Foto de ${escapeHtml(p.name)}" class="inventory-product-thumb">` : '<div class="inventory-product-placeholder"><i class="fa-solid fa-shirt"></i></div>'}
+          <div><div style="font-weight: 600;">${escapeHtml(p.name)}</div>
+        <small style="color: var(--text-muted); font-family: monospace;">Código: ${p.barcode || '-'}</small>
+          </div>
+        </div>
+      </td>
+      <td><span class="badge badge-secondary">${escapeHtml(p.category || 'Geral')}</span></td>
+      <td><span class="badge badge-size">${escapeHtml(p.size || 'M')}</span></td>
+      <td>
+        <span class="badge-color-dot" style="background-color: ${getColorHex(p.color)};"></span>
+        ${escapeHtml(p.color || 'Padrão')}
+      </td>
+      <td>R$ ${(p.costPrice || 0).toFixed(2)}</td>
+      <td style="font-weight: 700; color: var(--accent-primary);">R$ ${(p.sellPrice || 0).toFixed(2)}</td>
+      <td>${stockBadge}</td>
+      <td>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-secondary btn-sm" onclick="openPrintLabelModal('${p.id}')" title="Imprimir Etiqueta">
+            <i class="fa-solid fa-barcode"></i>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="openProductModal('${p.id}')" title="Editar">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDeleteProduct('${p.id}', '${escapeHtml(p.name)}')" title="Excluir">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    `;
+    tableBody.appendChild(row);
+  });
+}
+
+// Abrir Modal de Cadastro/Edição
+function openProductModal(productId = null) {
+  currentEditingProductId = productId;
+  const modal = document.getElementById('product-modal');
+  const title = document.getElementById('product-modal-title');
+  const form = document.getElementById('product-form');
+
+  form.reset();
+  currentProductImage = '';
+  updateProductPhotoPreview();
+
+  if (productId) {
+    title.textContent = "Editar Peça de Roupa";
+    const product = allProducts.find(p => p.id === productId);
+    if (product) {
+      document.getElementById('prod-name').value = product.name;
+      document.getElementById('prod-category').value = product.category || 'Feminino';
+      document.getElementById('prod-size').value = product.size || 'M';
+      document.getElementById('prod-color').value = product.color || 'Preto';
+      document.getElementById('prod-cost-price').value = product.costPrice || 0;
+      document.getElementById('prod-sell-price').value = product.sellPrice || 0;
+      document.getElementById('prod-stock').value = product.stockQty || 0;
+      document.getElementById('prod-min-stock').value = product.minStock || 2;
+      document.getElementById('prod-barcode').value = product.barcode || '';
+      document.getElementById('prod-description').value = product.description || '';
+      currentProductImage = product.imageUrl || '';
+      updateProductPhotoPreview();
+    }
+  } else {
+    title.textContent = "Nova Peça de Roupa";
+    document.getElementById('prod-barcode').value = generateRandomBarcode();
+  }
+
+  modal.classList.add('active');
+}
+
+function closeProductModal() {
+  document.getElementById('product-modal').classList.remove('active');
+}
+
+// Salvar Produto (Submit)
+async function handleProductFormSubmit(e) {
+  e.preventDefault();
+
+  const productData = {
+    name: document.getElementById('prod-name').value.trim(),
+    category: document.getElementById('prod-category').value,
+    size: document.getElementById('prod-size').value,
+    color: document.getElementById('prod-color').value.trim(),
+    costPrice: document.getElementById('prod-cost-price').value,
+    sellPrice: document.getElementById('prod-sell-price').value,
+    stockQty: document.getElementById('prod-stock').value,
+    minStock: document.getElementById('prod-min-stock').value,
+    barcode: document.getElementById('prod-barcode').value.trim(),
+    description: document.getElementById('prod-description').value.trim(),
+    imageUrl: currentProductImage
+  };
+
+  if (!productData.name || !productData.sellPrice) {
+    showToast("Preencha o nome e o preço de venda da peça.", "warning");
+    return;
+  }
+
+  if (!currentEditingProductId && allProducts.length >= 9000) {
+    showToast('Limite de 9.000 produtos atingido.', 'warning');
+    return;
+  }
+
+  try {
+    if (currentEditingProductId) {
+      await updateProduct(currentEditingProductId, productData);
+      showToast("Produto atualizado com sucesso!", "success");
+    } else {
+      await addProduct(productData);
+      showToast("Novo produto cadastrado com sucesso!", "success");
+    }
+    closeProductModal();
+  } catch (err) {
+    showToast("Erro ao salvar produto.", "danger");
+  }
+}
+
+async function handleProductPhoto(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('Selecione um arquivo de imagem válido.', 'warning');
+    return;
+  }
+  try {
+    currentProductImage = await compressProductImage(file);
+    updateProductPhotoPreview();
+    showToast('Foto adicionada à peça.', 'success');
+  } catch (error) {
+    console.error('Erro ao processar foto:', error);
+    showToast('Não foi possível processar essa foto.', 'danger');
+  }
+}
+
+function compressProductImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = reject;
+      image.onload = () => {
+        const maxSize = 700;
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.68));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function updateProductPhotoPreview() {
+  const preview = document.getElementById('prod-photo-preview');
+  const removeButton = document.getElementById('btn-remove-product-photo');
+  if (!preview) return;
+  preview.innerHTML = currentProductImage
+    ? `<img src="${currentProductImage}" alt="Pré-visualização da peça">`
+    : '<i class="fa-solid fa-shirt"></i><span>Nenhuma foto selecionada</span>';
+  if (removeButton) removeButton.style.display = currentProductImage ? 'inline-flex' : 'none';
+}
+
+function removeProductPhoto() {
+  currentProductImage = '';
+  updateProductPhotoPreview();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('prod-photo-file')?.addEventListener('change', handleProductPhoto);
+  document.getElementById('prod-photo-camera')?.addEventListener('change', handleProductPhoto);
+});
+
+// Confirmar exclusão
+async function confirmDeleteProduct(id, name) {
+  if (confirm(`Deseja realmente excluir o produto "${name}" do estoque?`)) {
+    try {
+      await deleteProduct(id);
+      showToast("Produto removido do estoque.", "warning");
+    } catch (e) {
+      showToast("Erro ao remover produto.", "danger");
+    }
+  }
+}
+
+// Modal de Gerar/Imprimir Etiqueta com Barcode
+function openPrintLabelModal(productId) {
+  const product = allProducts.find(p => p.id === productId);
+  if (!product) return;
+
+  const modal = document.getElementById('label-modal');
+  document.getElementById('label-prod-name').textContent = product.name;
+  document.getElementById('label-prod-details').textContent = `Tam: ${product.size} | Cor: ${product.color}`;
+  document.getElementById('label-prod-price').textContent = `R$ ${product.sellPrice.toFixed(2)}`;
+
+  // Gerar Código de Barras com JsBarcode
+  try {
+    JsBarcode("#label-barcode-svg", product.barcode || "000000000000", {
+      format: "CODE128",
+      lineColor: "#000",
+      width: 2,
+      height: 50,
+      displayValue: true
+    });
+  } catch (e) {
+    console.error("Erro ao gerar código de barras visual:", e);
+  }
+
+  modal.classList.add('active');
+}
+
+function closeLabelModal() {
+  document.getElementById('label-modal').classList.remove('active');
+}
+
+function printLabel() {
+  window.print();
+}
+
+// Helper para converter nome de cores em HEX aproximado para as bolinhas visuais
+function getColorHex(colorName) {
+  if (!colorName) return '#94a3b8';
+  const c = colorName.toLowerCase();
+  if (c.includes('preto') || c.includes('black')) return '#000000';
+  if (c.includes('branco') || c.includes('white')) return '#ffffff';
+  if (c.includes('vermelho') || c.includes('red')) return '#ef4444';
+  if (c.includes('azul') || c.includes('blue')) return '#3b82f6';
+  if (c.includes('verde') || c.includes('green')) return '#10b981';
+  if (c.includes('rosa') || c.includes('pink')) return '#ec4899';
+  if (c.includes('amarelo') || c.includes('yellow')) return '#f59e0b';
+  if (c.includes('roxo') || c.includes('purple')) return '#8b5cf6';
+  if (c.includes('cinza') || c.includes('gray')) return '#64748b';
+  if (c.includes('bege') || c.includes('beige')) return '#d4b595';
+  return '#8b5cf6';
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, function (m) {
+    return {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    }[m];
+  });
+}

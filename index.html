@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="description" content="ModaGestão - Sistema completo de gestão para loja de roupas com PDV, controle de estoque, leitura de código de barras e relatórios de vendas." />
+  <title>ModaGestão | PDV & Estoque para Loja de Roupas</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Firebase SDK v9 Compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <!-- Html5 QR Code Scanner -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- JsBarcode (geração de código de barras para etiquetas) -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+</head>
+<body>
+
+<!-- ========================================================
+     TELA DE AUTENTICAÇÃO (Login / Cadastro)
+     ======================================================== -->
+<div class="auth-container" id="auth-container">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <i class="fa-solid fa-shirt"></i> MARIMODAS
+    </div>
+    <p class="auth-subtitle">Sistema de Gestão para Loja de Roupas</p>
+
+    <!-- Tabs: Login / Cadastro -->
+    <div class="auth-tabs">
+      <button class="auth-tab-btn active" data-tab="login">Entrar</button>
+      <button class="auth-tab-btn" data-tab="register">Criar Conta</button>
+    </div>
+
+    <!-- Painel Login -->
+    <div class="auth-form-panel" id="panel-login">
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email"><i class="fa-solid fa-envelope"></i> E-mail</label>
+          <input type="email" id="login-email" class="form-control" placeholder="seu@email.com" required autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="login-password"><i class="fa-solid fa-lock"></i> Senha</label>
+          <input type="password" id="login-password" class="form-control" placeholder="Sua senha" required autocomplete="current-password" />
+        </div>
+        <div style="text-align:right; margin-bottom:1.25rem;">
+          <a href="#" id="forgot-password-link" style="font-size:0.85rem; color:var(--accent-primary); text-decoration:none;">
+            Esqueci minha senha
+          </a>
+        </div>
+        <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%;">
+          <i class="fa-solid fa-right-to-bracket"></i> Entrar
+        </button>
+      </form>
+    </div>
+
+    <!-- Painel Cadastro -->
+    <div class="auth-form-panel" id="panel-register" style="display:none;">
+      <form id="register-form">
+        <div class="form-group">
+          <label for="reg-name"><i class="fa-solid fa-user"></i> Nome Completo</label>
+          <input type="text" id="reg-name" class="form-control" placeholder="Seu nome" required />
+        </div>
+        <div class="form-group">
+          <label for="reg-email"><i class="fa-solid fa-envelope"></i> E-mail</label>
+          <input type="email" id="reg-email" class="form-control" placeholder="seu@email.com" required autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="reg-password"><i class="fa-solid fa-lock"></i> Senha</label>
+          <input type="password" id="reg-password" class="form-control" placeholder="Mínimo 6 caracteres" required autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label for="reg-password-confirm"><i class="fa-solid fa-lock"></i> Confirmar Senha</label>
+          <input type="password" id="reg-password-confirm" class="form-control" placeholder="Repita a senha" required autocomplete="new-password" />
+        </div>
+        <button type="submit" class="btn btn-primary" id="register-btn" style="width:100%; margin-top:0.5rem;">
+          <i class="fa-solid fa-user-plus"></i> Criar Conta
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================
+     APLICAÇÃO PRINCIPAL (Visível após login)
+     ======================================================== -->
+<div id="main-app" style="display:none; width:100%; min-height:100vh; position:relative;">
+
+  <!-- ---- SIDEBAR (Desktop) ---- -->
+  <aside class="sidebar" id="desktop-sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <i class="fa-solid fa-shirt"></i> MARIMODAS
+      </div>
+    </div>
+
+    <ul class="sidebar-menu">
+      <li>
+        <a class="nav-link active" data-nav="dashboard" href="#">
+          <i class="fa-solid fa-chart-pie"></i> Dashboard
+        </a>
+      </li>
+      <li>
+        <a class="nav-link" data-nav="inventory" href="#">
+          <i class="fa-solid fa-boxes-stacked"></i> Estoque
+        </a>
+      </li>
+      <li>
+        <a class="nav-link" data-nav="pdv" href="#">
+          <i class="fa-solid fa-cash-register"></i> PDV / Caixa
+        </a>
+      </li>
+      <li>
+        <a class="nav-link" data-nav="sales" href="#">
+          <i class="fa-solid fa-receipt"></i> Vendas
+        </a>
+      </li>
+      <li>
+        <a class="nav-link" data-nav="management" href="#">
+          <i class="fa-solid fa-briefcase"></i> Gestão Completa
+        </a>
+      </li>
+      <hr style="border-color:var(--border-color); margin: 8px 12px;" />
+      <li>
+        <a class="nav-link" data-nav="settings" href="#">
+          <i class="fa-solid fa-gear"></i> Configurações
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="user-info">
+          <div class="user-avatar" id="current-user-avatar">U</div>
+          <div class="user-details">
+            <span class="user-name" id="current-user-name">Usuário</span>
+            <span class="user-role" id="current-user-role">Administrador</span>
+          </div>
+        </div>
+        <button class="btn-logout" id="logout-btn" title="Sair">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ---- MOBILE HEADER ---- -->
+  <header class="mobile-header">
+    <div class="sidebar-brand" style="font-size:1.1rem;">
+      <i class="fa-solid fa-shirt" style="-webkit-text-fill-color:var(--accent-primary);"></i>
+      <span id="mobile-page-title" style="background:var(--accent-gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">Dashboard</span>
+    </div>
+    <button id="logout-btn-mobile" class="btn btn-secondary btn-sm" onclick="logoutUser()" title="Sair">
+      <i class="fa-solid fa-right-from-bracket"></i>
+    </button>
+  </header>
+
+  <!-- ---- CONTEÚDO PRINCIPAL ---- -->
+  <main class="main-content" id="main-content-area">
+
+    <!-- =============================================
+         SEÇÃO: DASHBOARD
+         ============================================= -->
+    <section class="page-section active" id="section-dashboard">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1>Dashboard</h1>
+          <p>Visão geral do seu negócio de moda</p>
+        </div>
+        <button class="btn btn-primary" onclick="navigateTo('pdv')">
+          <i class="fa-solid fa-cash-register"></i> Abrir Caixa
+        </button>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon pink"><i class="fa-solid fa-shirt"></i></div>
+          <div class="stat-info">
+            <h3 id="dash-total-products">0</h3>
+            <p>Produtos Cadastrados</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="stat-info">
+            <h3 id="dash-low-stock">0</h3>
+            <p>Estoque Baixo / Zerado</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple"><i class="fa-solid fa-receipt"></i></div>
+          <div class="stat-info">
+            <h3 id="dash-sales-today">0</h3>
+            <p>Vendas Hoje</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green"><i class="fa-solid fa-circle-dollar-to-slot"></i></div>
+          <div class="stat-info">
+            <h3 id="dash-revenue-today">R$ 0,00</h3>
+            <p>Receita de Hoje</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alertas e Vendas Recentes -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem;">
+        <div class="table-container" style="padding:1.25rem;">
+          <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Alertas de Estoque Baixo
+          </h3>
+          <div id="low-stock-list">
+            <div style="text-align:center; color:var(--text-muted); padding:1.5rem;">
+              <i class="fa-solid fa-spinner fa-spin"></i> Carregando...
+            </div>
+          </div>
+          <a href="#" class="btn btn-secondary btn-sm" data-nav="inventory" style="margin-top:1rem; width:100%; text-align:center;">
+            <i class="fa-solid fa-boxes-stacked"></i> Ver Estoque Completo
+          </a>
+        </div>
+        <div class="table-container" style="padding:1.25rem;">
+          <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-primary);"></i> Últimas Vendas
+          </h3>
+          <div id="recent-sales-list">
+            <div style="text-align:center; color:var(--text-muted); padding:1.5rem;">
+              <i class="fa-solid fa-spinner fa-spin"></i> Carregando...
+            </div>
+          </div>
+          <a href="#" class="btn btn-secondary btn-sm" data-nav="sales" style="margin-top:1rem; width:100%; text-align:center;">
+            <i class="fa-solid fa-receipt"></i> Ver Histórico Completo
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================
+         SEÇÃO: ESTOQUE
+         ============================================= -->
+    <section class="page-section" id="section-inventory">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1>Controle de Estoque</h1>
+          <p>Gerencie todas as peças de roupa do seu negócio</p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-secondary" id="btn-scan-inventory">
+            <i class="fa-solid fa-barcode"></i> Ler Código
+          </button>
+          <button class="btn btn-primary" id="btn-new-product">
+            <i class="fa-solid fa-plus"></i> Nova Peça
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="table-container" style="padding:1rem; margin-bottom:1.25rem;">
+        <div class="form-row" style="align-items:flex-end; gap:10px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="inventory-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar</label>
+            <input type="text" id="inventory-search" class="form-control" placeholder="Nome, código de barras, cor..." />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="inventory-category-filter"><i class="fa-solid fa-tag"></i> Categoria</label>
+            <select id="inventory-category-filter" class="form-control">
+              <option value="">Todas</option>
+              <option value="Feminino">Feminino</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Infantil">Infantil</option>
+              <option value="Acessórios">Acessórios</option>
+              <option value="Calçados">Calçados</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="inventory-size-filter"><i class="fa-solid fa-ruler"></i> Tamanho</label>
+            <select id="inventory-size-filter" class="form-control">
+              <option value="">Todos</option>
+              <option>PP</option><option>P</option><option>M</option>
+              <option>G</option><option>GG</option><option>XGG</option>
+              <option>34</option><option>36</option><option>38</option>
+              <option>40</option><option>42</option><option>44</option>
+              <option>46</option><option>48</option>
+              <option>Único</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela de Produtos -->
+      <div class="table-container custom-table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Categoria</th>
+              <th>Tamanho</th>
+              <th>Cor</th>
+              <th>Custo</th>
+              <th>Preço Venda</th>
+              <th>Estoque</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="products-table-body">
+            <tr>
+              <td colspan="8" style="text-align:center; color:var(--text-muted); padding:2rem;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem;"></i>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- =============================================
+         SEÇÃO: PDV / FRENTE DE CAIXA
+         ============================================= -->
+    <section class="page-section" id="section-pdv">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1><i class="fa-solid fa-cash-register" style="color:var(--accent-primary);"></i> Frente de Caixa</h1>
+          <p>Registre vendas rapidamente</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <span style="background:rgba(236,72,153,0.15); color:var(--accent-primary); padding:6px 14px; border-radius:20px; font-weight:600; font-size:0.9rem;">
+            <i class="fa-solid fa-shopping-cart"></i> <span id="cart-items-count">0</span> itens
+          </span>
+          <button class="btn btn-secondary" id="btn-pdv-scanner">
+            <i class="fa-solid fa-barcode"></i> Ler Código
+          </button>
+        </div>
+      </div>
+
+      <div class="pdv-container">
+        <!-- Catálogo -->
+        <div class="pdv-catalog">
+          <div class="pdv-search-bar">
+            <i class="fa-solid fa-magnifying-glass" style="color:var(--text-muted); align-self:center;"></i>
+            <input type="text" id="pdv-search-input" class="form-control" placeholder="Buscar produto por nome, código ou categoria..." style="border:none; background:transparent; box-shadow:none;" />
+          </div>
+          <div class="product-grid" id="pdv-product-grid">
+            <div style="text-align:center; color:var(--text-muted); padding:2rem; grid-column:1/-1;">
+              <i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem;"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Carrinho PDV -->
+        <div class="pdv-cart">
+          <h3 style="font-weight:700; font-size:1.1rem; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-shopping-cart" style="color:var(--accent-primary);"></i> Carrinho
+          </h3>
+
+          <div id="cart-empty-msg" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); text-align:center; gap:10px;">
+            <i class="fa-solid fa-cart-shopping" style="font-size:2.5rem; opacity:0.4;"></i>
+            <p style="font-size:0.9rem;">Carrinho vazio.<br>Selecione produtos ou leia um código.</p>
+          </div>
+
+          <div class="cart-items" id="cart-items-list"></div>
+
+          <!-- Desconto -->
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <label style="font-size:0.82rem;"><i class="fa-solid fa-tag"></i> Desconto (R$)</label>
+            <input type="number" id="cart-discount" class="form-control" value="0" min="0" step="0.01" style="padding:8px 12px;" />
+          </div>
+
+          <div class="cart-summary">
+            <div class="summary-row">
+              <span>Subtotal</span>
+              <span id="cart-subtotal">R$ 0,00</span>
+            </div>
+            <div class="summary-row">
+              <span>Desconto</span>
+              <span id="cart-discount-display" style="color:var(--success);">- R$ 0,00</span>
+            </div>
+            <div class="summary-row total">
+              <span>TOTAL</span>
+              <span id="cart-total">R$ 0,00</span>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:6px;">
+              <button class="btn btn-secondary" id="btn-clear-cart" style="flex:0 0 auto;">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+              <button class="btn btn-primary" id="btn-checkout" style="flex:1;">
+                <i class="fa-solid fa-check"></i> Finalizar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================
+         SEÇÃO: HISTÓRICO DE VENDAS
+         ============================================= -->
+    <section class="page-section" id="section-sales">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1>Histórico de Vendas</h1>
+          <p>Relatórios e controle financeiro</p>
+        </div>
+        <button class="btn btn-secondary" id="btn-export-csv">
+          <i class="fa-solid fa-file-csv"></i> Exportar CSV
+        </button>
+      </div>
+
+      <!-- Resumo rápido -->
+      <div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+        <div class="stat-card" style="flex:1; min-width:180px;">
+          <div class="stat-icon green"><i class="fa-solid fa-dollar-sign"></i></div>
+          <div class="stat-info">
+            <h3 id="sales-total-revenue">R$ 0,00</h3>
+            <p>Receita Filtrada</p>
+          </div>
+        </div>
+        <div class="stat-card" style="flex:1; min-width:180px;">
+          <div class="stat-icon purple"><i class="fa-solid fa-receipt"></i></div>
+          <div class="stat-info">
+            <h3 id="sales-total-count">0 vendas</h3>
+            <p>Total no Período</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros de Vendas -->
+      <div class="table-container" style="padding:1rem; margin-bottom:1.25rem;">
+        <div class="form-row" style="gap:10px; align-items:flex-end;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="sales-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar</label>
+            <input type="text" id="sales-search" class="form-control" placeholder="ID, operador, pagamento..." />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="sales-date-start"><i class="fa-solid fa-calendar"></i> De</label>
+            <input type="date" id="sales-date-start" class="form-control" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="sales-date-end"><i class="fa-solid fa-calendar"></i> Até</label>
+            <input type="date" id="sales-date-end" class="form-control" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="sales-status-filter"><i class="fa-solid fa-filter"></i> Status</label>
+            <select id="sales-status-filter" class="form-control">
+              <option value="">Todos</option>
+              <option value="CONCLUIDA">Concluídas</option>
+              <option value="CANCELADA">Canceladas</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela de Vendas -->
+      <div class="table-container custom-table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Pedido</th>
+              <th>Data / Hora</th>
+              <th>Itens</th>
+              <th>Pagamento</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="sales-table-body">
+            <tr>
+              <td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem;"></i>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- =============================================
+         SEÇÃO: CONFIGURAÇÕES (Firebase)
+         ============================================= -->
+    <section class="page-section" id="section-management">
+      <div class="page-header">
+        <div class="page-title-group"><h1>Gestão Completa</h1><p>Clientes, financeiro, equipe, inteligência artificial e integrações</p></div>
+        <span class="badge badge-success"><i class="fa-solid fa-store"></i> Sistema da loja</span>
+      </div>
+      <div class="management-tabs" role="tablist">
+        <button class="management-tab active" data-management-tab="clients"><i class="fa-solid fa-users"></i> Clientes</button>
+        <button class="management-tab" data-management-tab="finance"><i class="fa-solid fa-chart-line"></i> Financeiro</button>
+        <button class="management-tab" data-management-tab="team"><i class="fa-solid fa-user-shield"></i> Usuários</button>
+        <button class="management-tab" data-management-tab="ai"><i class="fa-solid fa-wand-magic-sparkles"></i> IA & Social</button>
+        <button class="management-tab" data-management-tab="plan"><i class="fa-solid fa-list-check"></i> Recursos</button>
+      </div>
+      <div id="management-content"></div>
+    </section>
+
+    <section class="page-section" id="section-settings">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1>Configurações do Firebase</h1>
+          <p>Conecte o sistema à sua conta do Firebase</p>
+        </div>
+      </div>
+
+      <div class="table-container" style="max-width:720px; padding:1.5rem;">
+        <div style="background:rgba(236,72,153,0.08); border:1px solid rgba(236,72,153,0.2); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; display:flex; gap:12px; align-items:flex-start;">
+          <i class="fa-solid fa-shield-halved" style="color:var(--accent-primary); font-size:1.3rem; margin-top:2px;"></i>
+          <div>
+            <strong style="display:block; margin-bottom:4px;">Como configurar com segurança:</strong>
+            <p style="font-size:0.88rem; color:var(--text-secondary); line-height:1.6;">
+              1. Acesse <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent-primary);">Firebase Console</a> e crie um projeto.<br>
+              2. Em <b>Configurações do Projeto &gt; Seus aplicativos</b>, registre um app Web e copie as credenciais.<br>
+              3. Em <b>Firestore &gt; Regras</b>, use o arquivo <code style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">firestore.rules</code> incluso no projeto para proteger os dados.<br>
+              4. Em <b>Authentication &gt; Sign-in method</b>, ative o provedor "E-mail/Senha".<br>
+              5. Cole suas credenciais abaixo e salve.
+            </p>
+          </div>
+        </div>
+
+        <form id="settings-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cfg-api-key"><i class="fa-solid fa-key"></i> API Key</label>
+              <input type="text" id="cfg-api-key" class="form-control" placeholder="AIzaSy..." />
+            </div>
+            <div class="form-group">
+              <label for="cfg-auth-domain"><i class="fa-solid fa-globe"></i> Auth Domain</label>
+              <input type="text" id="cfg-auth-domain" class="form-control" placeholder="seu-app.firebaseapp.com" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cfg-project-id"><i class="fa-brands fa-google"></i> Project ID</label>
+              <input type="text" id="cfg-project-id" class="form-control" placeholder="seu-projeto-id" />
+            </div>
+            <div class="form-group">
+              <label for="cfg-storage-bucket"><i class="fa-solid fa-database"></i> Storage Bucket</label>
+              <input type="text" id="cfg-storage-bucket" class="form-control" placeholder="seu-app.appspot.com" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cfg-messaging-sender-id"><i class="fa-solid fa-id-badge"></i> Messaging Sender ID</label>
+              <input type="text" id="cfg-messaging-sender-id" class="form-control" placeholder="123456789" />
+            </div>
+            <div class="form-group">
+              <label for="cfg-app-id"><i class="fa-solid fa-fingerprint"></i> App ID</label>
+              <input type="text" id="cfg-app-id" class="form-control" placeholder="1:123:web:abc..." />
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; margin-top:0.5rem;">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-floppy-disk"></i> Salvar Configurações
+            </button>
+            <button type="button" id="btn-reset-settings" class="btn btn-secondary">
+              <i class="fa-solid fa-rotate-left"></i> Restaurar Padrão
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+  </main><!-- /main-content -->
+
+  <!-- ---- MOBILE BOTTOM NAV ---- -->
+  <nav class="mobile-bottom-nav">
+    <a class="mobile-nav-item active" data-nav="dashboard" href="#">
+      <i class="fa-solid fa-chart-pie"></i>
+      <span>Dashboard</span>
+    </a>
+    <a class="mobile-nav-item" data-nav="inventory" href="#">
+      <i class="fa-solid fa-boxes-stacked"></i>
+      <span>Estoque</span>
+    </a>
+    <a class="mobile-nav-item" data-nav="pdv" href="#" style="position:relative;">
+      <div style="background:var(--accent-gradient); width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; position:absolute; top:-18px; box-shadow:var(--shadow-glow);">
+        <i class="fa-solid fa-cash-register" style="font-size:1.3rem; color:white;"></i>
+      </div>
+      <span style="margin-top:32px;">Caixa</span>
+    </a>
+    <a class="mobile-nav-item" data-nav="sales" href="#">
+      <i class="fa-solid fa-receipt"></i>
+      <span>Vendas</span>
+    </a>
+    <a class="mobile-nav-item" data-nav="management" href="#">
+      <i class="fa-solid fa-briefcase"></i>
+      <span>Gestão</span>
+    </a>
+  </nav>
+
+</div><!-- /main-app -->
+
+
+<!-- ========================================================
+     MODAIS
+     ======================================================== -->
+
+<!-- Modal: Cadastrar / Editar Produto -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal-card" style="max-width:680px;">
+    <div class="modal-header">
+      <h3 id="product-modal-title">Nova Peça de Roupa</h3>
+      <button class="modal-close" onclick="closeProductModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="product-form">
+        <div class="form-row">
+          <div class="form-group" style="grid-column:1/-1;">
+            <label for="prod-name"><i class="fa-solid fa-shirt"></i> Nome da Peça *</label>
+            <input type="text" id="prod-name" class="form-control" placeholder="Ex: Blusa Floral, Calça Jeans Slim..." required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="prod-category"><i class="fa-solid fa-tag"></i> Categoria</label>
+            <select id="prod-category" class="form-control">
+              <option value="Feminino">Feminino</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Infantil">Infantil</option>
+              <option value="Acessórios">Acessórios</option>
+              <option value="Calçados">Calçados</option>
+              <option value="Geral">Geral</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="prod-size"><i class="fa-solid fa-ruler"></i> Tamanho</label>
+            <select id="prod-size" class="form-control">
+              <option value="PP">PP</option>
+              <option value="P">P</option>
+              <option value="M" selected>M</option>
+              <option value="G">G</option>
+              <option value="GG">GG</option>
+              <option value="XGG">XGG</option>
+              <option value="34">34</option><option value="36">36</option>
+              <option value="38">38</option><option value="40">40</option>
+              <option value="42">42</option><option value="44">44</option>
+              <option value="46">46</option><option value="48">48</option>
+              <option value="Único">Único</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="prod-color"><i class="fa-solid fa-palette"></i> Cor</label>
+            <input type="text" id="prod-color" class="form-control" placeholder="Preto, Azul, Rosa..." value="Preto" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="prod-cost-price"><i class="fa-solid fa-coins"></i> Preço de Custo (R$)</label>
+            <input type="number" id="prod-cost-price" class="form-control" placeholder="0,00" min="0" step="0.01" value="0" />
+          </div>
+          <div class="form-group">
+            <label for="prod-sell-price"><i class="fa-solid fa-dollar-sign"></i> Preço de Venda (R$) *</label>
+            <input type="number" id="prod-sell-price" class="form-control" placeholder="0,00" min="0" step="0.01" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="prod-stock"><i class="fa-solid fa-cubes"></i> Quantidade em Estoque</label>
+            <input type="number" id="prod-stock" class="form-control" placeholder="0" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label for="prod-min-stock"><i class="fa-solid fa-arrow-down"></i> Estoque Mínimo (Alerta)</label>
+            <input type="number" id="prod-min-stock" class="form-control" placeholder="2" min="0" value="2" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="prod-barcode"><i class="fa-solid fa-barcode"></i> Código de Barras / QR Code</label>
+          <div style="display:flex; gap:10px;">
+            <input type="text" id="prod-barcode" class="form-control" placeholder="Código EAN/QR..." />
+            <button type="button" class="btn btn-secondary" onclick="openProductBarcodeScanner()" title="Ler código com câmera">
+              <i class="fa-solid fa-camera"></i>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="prod-description"><i class="fa-solid fa-align-left"></i> Descrição (opcional)</label>
+          <textarea id="prod-description" class="form-control" rows="2" placeholder="Detalhes adicionais..."></textarea>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-image"></i> Foto da peça (opcional)</label>
+          <div class="product-photo-editor">
+            <div class="product-photo-preview" id="prod-photo-preview">
+              <i class="fa-solid fa-shirt"></i>
+              <span>Nenhuma foto selecionada</span>
+            </div>
+            <div class="product-photo-actions">
+              <input type="file" id="prod-photo-file" accept="image/*" hidden />
+              <input type="file" id="prod-photo-camera" accept="image/*" capture="environment" hidden />
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('prod-photo-file').click()">
+                <i class="fa-solid fa-folder-open"></i> Escolher foto
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('prod-photo-camera').click()">
+                <i class="fa-solid fa-camera"></i> Tirar foto
+              </button>
+              <button type="button" class="btn btn-danger" id="btn-remove-product-photo" onclick="removeProductPhoto()" style="display:none;">
+                <i class="fa-solid fa-trash"></i> Remover
+              </button>
+              <small>A imagem será reduzida automaticamente antes de salvar.</small>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Salvar Peça</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Scanner Câmera - Estoque -->
+<div class="modal-overlay" id="inventory-scanner-modal">
+  <div class="modal-card" style="max-width:520px;">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-camera"></i> Ler Código de Barras / QR Code</h3>
+      <button class="modal-close" id="btn-close-inventory-scanner"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem; text-align:center;">
+        Aponte a câmera para o código de barras ou QR Code da peça de roupa.
+      </p>
+      <div id="inventory-reader"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Scanner Câmera - PDV -->
+<div class="modal-overlay" id="pdv-scanner-modal">
+  <div class="modal-card" style="max-width:520px;">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-camera"></i> Leitura de Produto no PDV</h3>
+      <button class="modal-close" onclick="closePDVScannerModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem; text-align:center;">
+        Aponte para o código de barras da peça para adicioná-la ao carrinho.
+      </p>
+      <div id="pdv-reader"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Scanner Câmera - Formulário de Produto -->
+<div class="modal-overlay" id="prod-scanner-modal">
+  <div class="modal-card" style="max-width:520px;">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-camera"></i> Capturar Código da Peça</h3>
+      <button class="modal-close" onclick="closeProdScannerModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem; text-align:center;">
+        Aponte a câmera para o código de barras ou QR Code da etiqueta da roupa.
+      </p>
+      <div id="prod-reader"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Imprimir Etiqueta de Produto -->
+<div class="modal-overlay" id="label-modal">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-barcode"></i> Imprimir Etiqueta</h3>
+      <button class="modal-close" onclick="closeLabelModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- Preview da etiqueta -->
+      <div class="barcode-preview-box" id="printable-label">
+        <h4 id="label-prod-name" style="margin-bottom:4px;">Nome do Produto</h4>
+        <p id="label-prod-details" style="font-size:0.82rem; margin-bottom:8px;">Tamanho / Cor</p>
+        <svg id="label-barcode-svg" style="max-width:100%;"></svg>
+        <p id="label-prod-price" style="font-size:1.1rem; font-weight:700; margin-top:8px;">R$ 0,00</p>
+        <p style="font-size:0.72rem; color:#888; margin-top:4px;">MARIMODAS</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeLabelModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="printLabel()">
+        <i class="fa-solid fa-print"></i> Imprimir Etiqueta
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Finalizar Venda (Checkout) -->
+<div class="modal-overlay" id="checkout-modal">
+  <div class="modal-card" style="max-width:480px;">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-circle-dollar-to-slot"></i> Finalizar Venda</h3>
+      <button class="modal-close" onclick="closeCheckoutModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- Resumo -->
+      <div style="background:rgba(15,23,42,0.5); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem;">
+        <div class="summary-row" style="margin-bottom:6px;"><span>Subtotal</span><span id="checkout-subtotal">R$ 0,00</span></div>
+        <div class="summary-row" style="margin-bottom:6px;"><span>Desconto</span><span id="checkout-discount" style="color:var(--success);">- R$ 0,00</span></div>
+        <div class="summary-row total"><span>TOTAL A PAGAR</span><span id="checkout-total">R$ 0,00</span></div>
+      </div>
+
+      <!-- Método de Pagamento -->
+      <h4 style="margin-bottom:12px; font-size:0.95rem; color:var(--text-secondary);">Forma de Pagamento</h4>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:1.25rem;">
+        <button class="btn btn-secondary payment-method-btn" data-payment="DINHEIRO" style="flex-direction:column; padding:1rem; gap:6px;">
+          <i class="fa-solid fa-money-bill-wave" style="font-size:1.3rem; color:var(--success);"></i> Dinheiro
+        </button>
+        <button class="btn btn-secondary payment-method-btn" data-payment="PIX" style="flex-direction:column; padding:1rem; gap:6px;">
+          <i class="fa-brands fa-pix" style="font-size:1.3rem; color:var(--info);"></i> PIX
+        </button>
+        <button class="btn btn-secondary payment-method-btn" data-payment="CARTAO_CREDITO" style="flex-direction:column; padding:1rem; gap:6px;">
+          <i class="fa-solid fa-credit-card" style="font-size:1.3rem; color:var(--accent-primary);"></i> Crédito
+        </button>
+        <button class="btn btn-secondary payment-method-btn" data-payment="CARTAO_DEBITO" style="flex-direction:column; padding:1rem; gap:6px;">
+          <i class="fa-solid fa-credit-card" style="font-size:1.3rem; color:var(--accent-secondary);"></i> Débito
+        </button>
+        <button class="btn btn-secondary payment-method-btn" data-payment="CREDITO_LOJA" style="grid-column:1/-1; padding:1rem; gap:8px;">
+          <i class="fa-solid fa-address-card" style="font-size:1.3rem; color:var(--warning);"></i> Crédito da loja (fiado)
+        </button>
+      </div>
+
+      <div id="store-credit-section" style="display:none; margin-bottom:1.25rem;">
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="store-credit-client"><i class="fa-solid fa-user"></i> Cliente *</label>
+            <select id="store-credit-client" class="form-control"><option value="">Selecione um cliente</option></select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="store-credit-due"><i class="fa-solid fa-calendar-day"></i> Primeiro vencimento *</label>
+            <input type="date" id="store-credit-due" class="form-control" />
+          </div>
+        </div>
+        <div class="form-group" style="margin:12px 0 0;">
+          <label for="store-credit-installments"><i class="fa-solid fa-calendar-days"></i> Parcelamento</label>
+          <select id="store-credit-installments" class="form-control"></select>
+          <small id="store-credit-rule" style="color:var(--text-muted); display:block; margin-top:6px;"></small>
+        </div>
+      </div>
+
+      <!-- Seção Dinheiro: Troco -->
+      <div id="cash-section" style="display:none; background:rgba(15,23,42,0.5); border-radius:var(--radius-md); padding:1rem;">
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label for="cash-received"><i class="fa-solid fa-money-bills"></i> Valor Recebido (R$)</label>
+          <input type="number" id="cash-received" class="form-control" placeholder="0,00" min="0" step="0.01" />
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:1.1rem; font-weight:700;">
+          <span>Troco:</span>
+          <span id="change-amount" style="color:var(--success);">R$ 0,00</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCheckoutModal()">Cancelar</button>
+      <button class="btn btn-success" id="btn-finalize-sale">
+        <i class="fa-solid fa-check"></i> Confirmar Venda
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Recibo de Venda -->
+<div class="modal-overlay" id="receipt-modal">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-receipt"></i> Comprovante da Venda</h3>
+      <button class="modal-close" onclick="closeReceiptModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="printable-receipt" style="background:#fff; color:#000; border-radius:var(--radius-md); padding:1rem; font-family:monospace;">
+        <!-- Preenchido dinamicamente pelo js/pdv.js -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeReceiptModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="printReceipt()">
+        <i class="fa-solid fa-print"></i> Imprimir Recibo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalhes da Venda -->
+<div class="modal-overlay" id="sale-detail-modal">
+  <div class="modal-card" style="max-width:700px;">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-file-invoice-dollar"></i> Detalhes da Venda</h3>
+      <button class="modal-close" onclick="closeSaleDetailModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="sale-detail-content">
+      <!-- Preenchido por js/sales.js -->
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ========================================================
+     SCRIPTS JAVASCRIPT
+     ======================================================== -->
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/db.js"></script>
+<script src="js/scanner.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/pdv.js"></script>
+<script src="js/sales.js"></script>
+<script src="js/management.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+  // Scanner inline no formulário de produto
+  function openProductBarcodeScanner() {
+    document.getElementById('prod-scanner-modal').classList.add('active');
+    startCameraScanner((code) => {
+      document.getElementById('prod-barcode').value = code;
+      closeProdScannerModal();
+      showToast(`Código lido: ${code}`, "success");
+    }, 'prod-reader');
+  }
+
+  function closeProdScannerModal() {
+    stopCameraScanner();
+    document.getElementById('prod-scanner-modal').classList.remove('active');
+  }
+
+  // Fechar modais ao clicar no backdrop
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        stopCameraScanner();
+        overlay.classList.remove('active');
+      }
+    });
+  });
+</script>
+</body>
+</html>
