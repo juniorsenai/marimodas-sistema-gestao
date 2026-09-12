@@ -134,12 +134,10 @@ function addMonthsKeepingDay(date, months, preferredDay) {
 }
 
 function renderTeam() {
-  const members = mgRead('team');
-  return `<div class="management-grid"><form class="table-container management-form" onsubmit="saveTeamMember(event)"><h3>Novo acesso</h3>
-    <div class="form-group"><label>Nome *</label><input class="form-control" name="name" required></div><div class="form-group"><label>E-mail *</label><input class="form-control" name="email" type="email" required></div>
-    <div class="form-group"><label>Perfil</label><select class="form-control" name="role"><option>Operador de caixa</option><option>Estoquista</option><option>Gerente</option><option>Administrador</option></select></div>
-    <button class="btn btn-primary">Adicionar usuário</button><p class="form-help">O administrador deve criar o login correspondente no Firebase Authentication.</p></form>
-    <div class="table-container management-list"><div class="list-heading"><h3>Usuários e permissões</h3></div><div class="team-cards">${members.length ? members.map(m => `<div class="team-card"><div class="user-avatar">${escapeHtml(m.name[0].toUpperCase())}</div><div><b>${escapeHtml(m.name)}</b><p>${escapeHtml(m.email)}</p><span class="badge badge-size">${escapeHtml(m.role)}</span></div><button class="btn btn-danger btn-sm" onclick="deleteTeamMember('${m.id}')"><i class="fa-solid fa-trash"></i></button></div>`).join('') : '<p class="empty-cell">Nenhum acesso adicional.</p>'}</div></div></div>`;
+  return `<div class="table-container management-form" style="max-width:760px;"><h3><i class="fa-solid fa-user-shield"></i> Acessos gerenciados pelo Firebase</h3>
+    <p style="color:var(--text-secondary); line-height:1.7;">O cadastro público está desativado. Para liberar uma pessoa, crie a conta em <b>Firebase Authentication</b> e depois crie o perfil autorizado na coleção <b>users</b> do Firestore usando o mesmo UID.</p>
+    <div class="auth-access-steps"><div><b>1.</b> Authentication → Users → Add user</div><div><b>2.</b> Copie o UID criado</div><div><b>3.</b> Firestore → users → Add document</div><div><b>4.</b> Use o UID como ID e informe active = true</div></div>
+    <p class="form-help">Para bloquear alguém sem apagar o histórico, altere o campo <b>active</b> para <b>false</b>.</p></div>`;
 }
 function saveTeamMember(event) {
   event.preventDefault(); const data = new FormData(event.target); const members = mgRead('team');

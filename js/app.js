@@ -239,38 +239,6 @@ function handleLoginFormSubmit(e) {
   });
 }
 
-function handleRegisterFormSubmit(e) {
-  e.preventDefault();
-  const name = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
-  const password = document.getElementById('reg-password').value;
-  const confirm = document.getElementById('reg-password-confirm').value;
-  const btn = document.getElementById('register-btn');
-
-  if (!name || !email || !password) {
-    showToast("Preencha todos os campos.", "warning");
-    return;
-  }
-
-  if (password !== confirm) {
-    showToast("As senhas não coincidem.", "danger");
-    return;
-  }
-
-  if (password.length < 6) {
-    showToast("A senha deve ter pelo menos 6 caracteres.", "warning");
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cadastrando...';
-
-  registerUser(name, email, password).finally(() => {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Criar Conta';
-  });
-}
-
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.auth-form-panel').forEach(p => p.style.display = 'none');
@@ -292,7 +260,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Auth Forms
   document.getElementById('login-form')?.addEventListener('submit', handleLoginFormSubmit);
-  document.getElementById('register-form')?.addEventListener('submit', handleRegisterFormSubmit);
   document.querySelectorAll('.auth-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchAuthTab(btn.dataset.tab));
   });

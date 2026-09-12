@@ -6,11 +6,26 @@ let currentUser = null;
 
 // Escutar estado de autenticação em tempo real
 function initAuthListener() {
-  auth.onAuthStateChanged(user => {
+  auth.onAuthStateChanged(async user => {
     const authContainer = document.getElementById('auth-container');
     const mainApp = document.getElementById('main-app');
 
     if (user) {
+      let profile;
+      try {
+        const profileDoc = await db.collection('users').doc(user.uid).get();
+        if (!profileDoc.exists || profileDoc.data().active === false) {
+          await auth.signOut();
+          showToast('Esta conta não tem autorização para acessar o sistema.', 'danger');
+          return;
+        }
+        profile = profileDoc.data();
+      } catch (error) {
+        console.error('Erro ao validar autorização:', error);
+        await auth.signOut();
+        showToast('Não foi possível validar a autorização desta conta.', 'danger');
+        return;
+      }
       currentUser = user;
       console.log("Usuário autenticado:", user.email);
 
@@ -19,10 +34,10 @@ function initAuthListener() {
       const userAvatarEl = document.getElementById('current-user-avatar');
       const userRoleEl = document.getElementById('current-user-role');
 
-      const displayName = user.displayName || user.email.split('@')[0];
+      const displayName = profile.name || user.displayName || user.email.split('@')[0];
       if (userNameEl) userNameEl.textContent = displayName;
       if (userAvatarEl) userAvatarEl.textContent = displayName.charAt(0).toUpperCase();
-      if (userRoleEl) userRoleEl.textContent = "Administrador / Operador";
+      if (userRoleEl) userRoleEl.textContent = profile.role || "Usuário autorizado";
 
       // Esconder Auth / Mostrar App
       if (authContainer) authContainer.style.display = 'none';
@@ -48,7 +63,6 @@ function initAuthListener() {
 async function loginUser(email, password) {
   try {
     const userCredential = await auth.signInWithEmailAndPassword(email, password);
-    showToast("Login realizado com sucesso!", "success");
     return userCredential.user;
   } catch (error) {
     console.error("Erro ao fazer login:", error);
@@ -65,37 +79,10 @@ async function loginUser(email, password) {
 
 // Cadastrar Novo Usuário
 async function registerUser(name, email, password) {
-  try {
-    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-    
-    // Atualizar nome de exibição no Firebase Auth Profile
-    await user.updateProfile({
-      displayName: name
-    });
-
-    // Salvar perfil do usuário no Firestore
-    await db.collection('users').doc(user.uid).set({
-      uid: user.uid,
-      name: name,
-      email: email,
-      role: 'admin',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    showToast("Conta criada com sucesso!", "success");
-    return user;
-  } catch (error) {
-    console.error("Erro ao registrar:", error);
-    let msg = "Erro ao criar conta.";
-    if (error.code === 'auth/email-already-in-use') {
-      msg = "Este e-mail já está cadastrado.";
-    } else if (error.code === 'auth/weak-password') {
-      msg = "A senha deve ter pelo menos 6 caracteres.";
-    }
-    showToast(msg, "danger");
-    throw error;
-  }
+  const error = new Error('O cadastro público está desativado. Crie usuários manualmente no Firebase.');
+  error.code = 'auth/registration-disabled';
+  showToast(error.message, 'warning');
+  throw error;
 }
 
 // Enviar e-mail de redefinição de senha

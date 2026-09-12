@@ -48,10 +48,11 @@ Sistema completo de gestão para negócios de moda, com **PDV**, **Controle de E
 ### 5. Inserir Credenciais no Sistema
 
 Após abrir o sistema no navegador:
-1. Na tela de login, crie sua conta clicando em **"Criar Conta"**.
-2. Após logar, vá em **⚙️ Configurações** no menu.
-3. Cole suas credenciais do Firebase nos campos correspondentes.
-4. Clique em **Salvar Configurações** — o sistema recarregará com seu Firebase.
+1. Crie cada conta manualmente em **Firebase Authentication > Users > Add user**.
+2. Copie o UID da conta e crie um documento com esse mesmo UID em **Firestore > users**, contendo `name`, `email`, `role` e `active: true`.
+3. Após logar, vá em **⚙️ Configurações** no menu.
+4. Cole suas credenciais do Firebase nos campos correspondentes.
+5. Clique em **Salvar Configurações** — o sistema recarregará com seu Firebase.
 
 ---
 

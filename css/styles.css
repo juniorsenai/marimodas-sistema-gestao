@@ -123,6 +123,11 @@ body {
   margin-bottom: 2rem;
 }
 
+.auth-access-notice { display:flex; align-items:center; gap:10px; padding:12px; margin-bottom:1.5rem; color:var(--text-secondary); background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.22); border-radius:var(--radius-md); text-align:left; font-size:.88rem; }
+.auth-access-notice i { color:var(--info); font-size:1.15rem; }
+.auth-access-steps { display:grid; gap:8px; margin-top:1rem; }
+.auth-access-steps > div { padding:11px 13px; border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text-secondary); }
+
 .auth-tabs {
   display: flex;
   background: rgba(15, 23, 42, 0.5);
