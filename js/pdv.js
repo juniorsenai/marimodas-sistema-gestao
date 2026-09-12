@@ -239,8 +239,11 @@ function openCheckoutModal() {
   }
   if (window.refreshStoreCreditClients) refreshStoreCreditClients();
   updateStoreCreditInstallments(total);
+  updateCardCreditInstallments(total);
   const creditSection = document.getElementById('store-credit-section');
   if (creditSection) creditSection.style.display = 'none';
+  const cardSection = document.getElementById('card-credit-section');
+  if (cardSection) cardSection.style.display = 'none';
 
   document.getElementById('checkout-modal').classList.add('active');
 }
@@ -261,6 +264,36 @@ function selectPaymentMethod(method) {
   }
   const creditSection = document.getElementById('store-credit-section');
   if (creditSection) creditSection.style.display = method === 'CREDITO_LOJA' ? 'block' : 'none';
+  const cardSection = document.getElementById('card-credit-section');
+  if (cardSection) cardSection.style.display = method === 'CARTAO_CREDITO' ? 'block' : 'none';
+  if (method === 'CARTAO_CREDITO') updateCardFeePreview();
+}
+
+function getCurrentCartTotal() {
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const discount = parseFloat(document.getElementById('cart-discount')?.value || 0) || 0;
+  return Math.max(subtotal - discount, 0);
+}
+
+function updateCardCreditInstallments(total = getCurrentCartTotal()) {
+  const select = document.getElementById('card-credit-installments');
+  if (!select) return;
+  const previous = Number(select.value) || 1;
+  select.innerHTML = Array.from({ length: 12 }, (_, index) => {
+    const installments = index + 1;
+    return `<option value="${installments}">${installments}x de R$ ${(total / installments).toFixed(2).replace('.', ',')}</option>`;
+  }).join('');
+  select.value = previous;
+  updateCardFeePreview(total);
+}
+
+function updateCardFeePreview(total = getCurrentCartTotal()) {
+  const installments = Number(document.getElementById('card-credit-installments')?.value || 1);
+  const rate = window.getCardFeeRate ? getCardFeeRate(installments) : 0;
+  const fee = total * rate / 100;
+  const net = total - fee;
+  const preview = document.getElementById('card-fee-preview');
+  if (preview) preview.innerHTML = `<span>Taxa Mercado Pago<b>${rate.toFixed(2).replace('.', ',')}%</b></span><span>Custo da taxa<b>R$ ${fee.toFixed(2).replace('.', ',')}</b></span><span>Valor líquido<b>R$ ${net.toFixed(2).replace('.', ',')}</b></span>`;
 }
 
 function getStoreCreditMaxInstallments(total) {
@@ -305,6 +338,9 @@ async function finalizeSale() {
   const creditClientId = document.getElementById('store-credit-client')?.value || '';
   const creditDueDate = document.getElementById('store-credit-due')?.value || '';
   const creditInstallments = Number(document.getElementById('store-credit-installments')?.value || 1);
+  const cardInstallments = Number(document.getElementById('card-credit-installments')?.value || 1);
+  const cardFeeRate = paymentMethod === 'CARTAO_CREDITO' && window.getCardFeeRate ? getCardFeeRate(cardInstallments) : 0;
+  const cardFeeAmount = paymentMethod === 'CARTAO_CREDITO' ? Number((total * cardFeeRate / 100).toFixed(2)) : 0;
 
   if (paymentMethod === 'DINHEIRO' && cashReceived < total) {
     showToast("O valor recebido é menor que o total da venda.", "danger");
@@ -345,6 +381,10 @@ async function finalizeSale() {
       clientName: paymentMethod === 'CREDITO_LOJA' ? (getManagementClients().find(c => c.id === creditClientId)?.name || '') : '',
       dueDate: paymentMethod === 'CREDITO_LOJA' ? creditDueDate : '',
       installments: paymentMethod === 'CREDITO_LOJA' ? creditInstallments : 1,
+      cardInstallments: paymentMethod === 'CARTAO_CREDITO' ? cardInstallments : 1,
+      cardFeeRate,
+      cardFeeAmount,
+      netTotal: total - cardFeeAmount,
       cashReceived,
       changeGiven: Math.max(cashReceived - total, 0)
     };
@@ -416,6 +456,7 @@ function openReceiptModal(sale) {
       </div>
       <div style="margin-top:8px; font-size:0.85rem; color:#555;">
         <div><b>Pagamento:</b> ${paymentLabels[sale.paymentMethod] || sale.paymentMethod}</div>
+        ${sale.paymentMethod === 'CARTAO_CREDITO' ? `<div><b>Parcelamento:</b> ${sale.cardInstallments || 1}x</div>` : ''}
         ${sale.paymentMethod === 'CREDITO_LOJA' ? `<div><b>Parcelamento:</b> ${sale.installments || 1}x</div><div><b>Primeiro vencimento:</b> ${new Date(sale.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}</div>` : ''}
         ${sale.paymentMethod === 'DINHEIRO' ? `<div><b>Recebido:</b> R$ ${sale.cashReceived.toFixed(2)}</div><div><b>Troco:</b> R$ ${sale.changeGiven.toFixed(2)}</div>` : ''}
       </div>

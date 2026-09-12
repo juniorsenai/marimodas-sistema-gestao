@@ -48,6 +48,7 @@ function initAuthListener() {
       if (window.loadProducts) window.loadProducts();
       if (window.loadSales) window.loadSales();
       if (window.loadFinancialEntries) window.loadFinancialEntries();
+      if (window.loadSystemSettings) window.loadSystemSettings();
 
     } else {
       currentUser = null;

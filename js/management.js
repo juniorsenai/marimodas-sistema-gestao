@@ -3,6 +3,8 @@ const MG_LIMITS = { clients: 9000, products: 9000 };
 let allFinancialEntries = [];
 let financialUnsubscribe = null;
 let financeSyncRunning = false;
+let systemSettings = { whatsapp: '', terminal: 'Mercado Pago', cardFeeRates: {} };
+let settingsUnsubscribe = null;
 
 function mgOwner() { return currentUser?.uid || 'local'; }
 function mgKey(name) { return `modagestao_${mgOwner()}_${name}`; }
@@ -15,6 +17,19 @@ function mgMoney(value) {
   return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 function getManagementClients() { return mgRead('clients'); }
+
+function loadSystemSettings() {
+  if (settingsUnsubscribe) settingsUnsubscribe();
+  settingsUnsubscribe = db.collection('storeSettings').doc('integrations').onSnapshot(doc => {
+    if (doc.exists) systemSettings = { ...systemSettings, ...doc.data() };
+    if (managementTab === 'ai') renderManagement();
+    if (window.updateCardFeePreview) updateCardFeePreview();
+  }, error => console.error('Erro ao carregar configurações da loja:', error));
+}
+
+function getCardFeeRate(installments) {
+  return Number(systemSettings.cardFeeRates?.[String(installments)] || 0);
+}
 
 function loadFinancialEntries() {
   if (financialUnsubscribe) financialUnsubscribe();
@@ -150,7 +165,7 @@ function renderTeam() {
     <p class="form-help">Para bloquear alguém sem apagar o histórico, altere o campo <b>active</b> para <b>false</b>.</p></div>`;
 }
 function renderAI() {
-  const settings = mgRead('integrations')[0] || {};
+  const settings = systemSettings;
   return `<div class="management-grid">
     <div class="table-container management-form"><h3><i class="fa-solid fa-wand-magic-sparkles"></i> Assistente de conteúdo</h3>
       <div class="form-group"><label>Produto ou campanha</label><input id="ai-topic" class="form-control" placeholder="Ex.: coleção primavera"></div>
@@ -160,7 +175,9 @@ function renderAI() {
     </div>
     <form class="table-container management-form" onsubmit="saveIntegrations(event)"><h3><i class="fa-solid fa-plug"></i> Integrações</h3>
       <div class="form-group"><label>WhatsApp da loja</label><input class="form-control" name="whatsapp" value="${escapeHtml(settings.whatsapp || '')}" placeholder="5585999999999"></div>
-      <div class="form-group"><label>Provedor da maquininha</label><input class="form-control" name="terminal" value="${escapeHtml(settings.terminal || '')}" placeholder="Rede, Stone, Cielo..."></div>
+      <div class="form-group"><label>Provedor da maquininha</label><input class="form-control" name="terminal" value="${escapeHtml(settings.terminal || 'Mercado Pago')}" placeholder="Mercado Pago"></div>
+      <h4 style="margin:8px 0 10px;">Taxa do cartão de crédito por parcela (%)</h4>
+      <div class="fee-rate-grid">${Array.from({ length: 12 }, (_, index) => { const n = index + 1; return `<div class="form-group"><label>${n}x</label><input class="form-control" name="fee_${n}" type="number" min="0" max="100" step="0.01" value="${Number(settings.cardFeeRates?.[String(n)] || 0).toFixed(2)}"></div>`; }).join('')}</div>
       <button class="btn btn-primary">Salvar integrações</button>
       <button type="button" class="btn btn-success" onclick="openWhatsAppSupport()"><i class="fa-brands fa-whatsapp"></i> Abrir WhatsApp</button>
       <p class="form-help">A confirmação automática da maquininha e respostas automáticas no WhatsApp exigem as credenciais/API do provedor.</p>
@@ -177,13 +194,19 @@ function generateSocialContent() {
   };
   document.getElementById('ai-output').value = texts[channel];
 }
-function saveIntegrations(event) {
+async function saveIntegrations(event) {
   event.preventDefault(); const data = new FormData(event.target);
-  mgWrite('integrations', [{ whatsapp: data.get('whatsapp').replace(/\D/g, ''), terminal: data.get('terminal').trim() }]);
-  showToast('Integrações salvas.', 'success');
+  const cardFeeRates = {};
+  for (let n = 1; n <= 12; n++) cardFeeRates[String(n)] = Number(data.get(`fee_${n}`) || 0);
+  try {
+    await db.collection('storeSettings').doc('integrations').set({ whatsapp: data.get('whatsapp').replace(/\D/g, ''), terminal: data.get('terminal').trim() || 'Mercado Pago', cardFeeRates, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: currentUser.uid }, { merge: true });
+    showToast('Integrações e taxas salvas.', 'success');
+  } catch (error) {
+    console.error('Erro ao salvar integrações:', error); showToast('Erro ao salvar as configurações.', 'danger');
+  }
 }
 function openWhatsAppSupport() {
-  const phone = (mgRead('integrations')[0]?.whatsapp || '').replace(/\D/g, '');
+  const phone = (systemSettings.whatsapp || '').replace(/\D/g, '');
   if (!phone) return showToast('Configure o WhatsApp da loja primeiro.', 'warning');
   window.open(`https://wa.me/${phone}`, '_blank', 'noopener');
 }

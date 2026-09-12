@@ -1099,6 +1099,11 @@ body {
 .compact-stats { margin-bottom:1.25rem; grid-template-columns:repeat(3, 1fr); }
 .amount-in { color:var(--success); font-weight:700; }
 .amount-out { color:var(--danger); font-weight:700; }
+.card-fee-preview { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-size:.82rem; }
+.card-fee-preview > span { padding:9px; border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text-secondary); }
+.card-fee-preview b { display:block; color:var(--text-primary); margin-top:2px; }
+.fee-rate-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:9px; }
+.fee-rate-grid .form-group { margin:0; }
 .team-cards { display:grid; gap:10px; }
 .team-card { display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; border:1px solid var(--border-color); border-radius:var(--radius-md); padding:12px; }
 .team-card p { color:var(--text-secondary); font-size:.85rem; margin:2px 0 6px; }
@@ -1117,4 +1122,5 @@ body {
 @media (max-width: 600px) {
   .feature-list { grid-template-columns:1fr; }
   .management-tab { padding:10px 12px; }
+  .card-fee-preview, .fee-rate-grid { grid-template-columns:1fr 1fr; }
 }

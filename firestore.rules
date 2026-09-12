@@ -29,6 +29,10 @@ service cloud.firestore {
       allow read, write: if isAuthorized();
     }
 
+    match /storeSettings/{settingId} {
+      allow read, write: if isAuthorized();
+    }
+
     // Perfis dos usuários do sistema
     match /users/{userId} {
       // O perfil é criado/alterado somente por um administrador no console.

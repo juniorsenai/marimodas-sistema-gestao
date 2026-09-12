@@ -104,6 +104,10 @@ async function processSaleTransaction(saleData) {
     clientName: saleData.clientName || '',
     dueDate: saleData.dueDate || '',
     installments: parseInt(saleData.installments) || 1,
+    cardInstallments: parseInt(saleData.cardInstallments) || 1,
+    cardFeeRate: parseFloat(saleData.cardFeeRate) || 0,
+    cardFeeAmount: parseFloat(saleData.cardFeeAmount) || 0,
+    netTotal: parseFloat(saleData.netTotal ?? saleData.total),
     cashReceived: parseFloat(saleData.cashReceived || 0),
     changeGiven: parseFloat(saleData.changeGiven || 0),
     status: 'CONCLUIDA',
@@ -211,6 +215,23 @@ function addSaleFinancialEntriesToBatch(batch, sale, saleId, timestamp) {
       installments,
       dueDate: due.toISOString().slice(0, 10),
       status: sale.paymentMethod === 'CREDITO_LOJA' ? 'pending' : 'paid',
+      automatic: true,
+      createdAt: timestamp
+    }, { merge: true });
+  }
+
+  if (sale.paymentMethod === 'CARTAO_CREDITO' && Number(sale.cardFeeAmount) > 0) {
+    const feeRef = db.collection('financialEntries').doc(`sale_${saleId}_fee`);
+    batch.set(feeRef, {
+      type: 'expense',
+      amount: Number(sale.cardFeeAmount),
+      description: `Taxa ${systemSettings?.terminal || 'Mercado Pago'} · venda #${String(saleId).slice(0, 8).toUpperCase()} · ${sale.cardInstallments || 1}x`,
+      saleId,
+      paymentMethod: sale.paymentMethod,
+      installments: sale.cardInstallments || 1,
+      feeRate: sale.cardFeeRate || 0,
+      dueDate: firstDue.toISOString().slice(0, 10),
+      status: 'paid',
       automatic: true,
       createdAt: timestamp
     }, { merge: true });

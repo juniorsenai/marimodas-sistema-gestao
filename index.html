@@ -822,6 +822,14 @@
         </div>
       </div>
 
+      <div id="card-credit-section" style="display:none; margin-bottom:1.25rem; background:rgba(15,23,42,0.5); border-radius:var(--radius-md); padding:1rem;">
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="card-credit-installments"><i class="fa-solid fa-calendar-days"></i> Parcelamento no cartão</label>
+          <select id="card-credit-installments" class="form-control" onchange="updateCardFeePreview()"></select>
+        </div>
+        <div id="card-fee-preview" class="card-fee-preview"></div>
+      </div>
+
       <!-- Seção Dinheiro: Troco -->
       <div id="cash-section" style="display:none; background:rgba(15,23,42,0.5); border-radius:var(--radius-md); padding:1rem;">
         <div class="form-group" style="margin-bottom:0.75rem;">
