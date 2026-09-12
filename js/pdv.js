@@ -350,10 +350,6 @@ async function finalizeSale() {
     };
 
     const completedSale = await processSaleTransaction(saleData);
-    if (paymentMethod === 'CREDITO_LOJA') {
-      recordStoreCredit(completedSale.saleId, creditClientId, creditDueDate, total, creditInstallments);
-    }
-    
     closeCheckoutModal();
     
     // Abrir Recibo

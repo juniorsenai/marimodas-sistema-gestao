@@ -114,6 +114,9 @@ async function processSaleTransaction(saleData) {
 
   batch.set(saleRef, formattedSale);
 
+  // Registrar automaticamente a movimentação no financeiro.
+  addSaleFinancialEntriesToBatch(batch, formattedSale, saleRef.id, timestamp);
+
   // 2. Dar baixa automática no estoque de cada produto vendido
   for (const item of saleData.items) {
     const productRef = db.collection('products').doc(item.id);
@@ -160,12 +163,66 @@ async function cancelSaleTransaction(saleId) {
       });
     }
 
+    // Cancelar também os lançamentos financeiros ligados à venda.
+    const financialSnapshot = await db.collection('financialEntries').where('saleId', '==', saleId).get();
+    financialSnapshot.forEach(doc => {
+      batch.update(doc.ref, {
+        status: 'cancelled',
+        cancelledAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
     await batch.commit();
     return true;
   } catch (error) {
     console.error("Erro ao estornar venda:", error);
     throw error;
   }
+}
+
+function addSaleFinancialEntriesToBatch(batch, sale, saleId, timestamp) {
+  const installments = sale.paymentMethod === 'CREDITO_LOJA' ? (parseInt(sale.installments) || 1) : 1;
+  const totalCents = Math.round(Number(sale.total || 0) * 100);
+  const baseCents = Math.floor(totalCents / installments);
+  const firstDue = sale.dueDate ? new Date(sale.dueDate + 'T12:00:00') : new Date();
+  const preferredDay = firstDue.getDate();
+
+  for (let index = 0; index < installments; index++) {
+    const cents = index === installments - 1
+      ? totalCents - (baseCents * (installments - 1))
+      : baseCents;
+    const due = new Date(firstDue);
+    due.setDate(1);
+    due.setMonth(due.getMonth() + index);
+    const lastDay = new Date(due.getFullYear(), due.getMonth() + 1, 0).getDate();
+    due.setDate(Math.min(preferredDay, lastDay));
+
+    const entryRef = db.collection('financialEntries').doc(`sale_${saleId}_${index + 1}`);
+    batch.set(entryRef, {
+      type: 'income',
+      amount: cents / 100,
+      description: sale.paymentMethod === 'CREDITO_LOJA'
+        ? `Fiado de ${sale.clientName || 'cliente'} · venda #${String(saleId).slice(0, 8).toUpperCase()} · parcela ${index + 1}/${installments}`
+        : `Venda #${String(saleId).slice(0, 8).toUpperCase()}`,
+      saleId,
+      clientId: sale.clientId || '',
+      paymentMethod: sale.paymentMethod,
+      installment: index + 1,
+      installments,
+      dueDate: due.toISOString().slice(0, 10),
+      status: sale.paymentMethod === 'CREDITO_LOJA' ? 'pending' : 'paid',
+      automatic: true,
+      createdAt: timestamp
+    }, { merge: true });
+  }
+}
+
+async function ensureSaleFinancialEntries(sale) {
+  if (!sale || sale.status !== 'CONCLUIDA') return;
+  const saleId = sale.saleId || sale.id;
+  const batch = db.batch();
+  addSaleFinancialEntriesToBatch(batch, sale, saleId, sale.createdAt || firebase.firestore.FieldValue.serverTimestamp());
+  await batch.commit();
 }
 
 // Gerar código de barras aleatório de 12 dígitos se não fornecido

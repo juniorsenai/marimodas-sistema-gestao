@@ -1,5 +1,8 @@
 /* Gestão complementar: clientes, financeiro, acessos, IA e integrações. */
 const MG_LIMITS = { clients: 9000, products: 9000 };
+let allFinancialEntries = [];
+let financialUnsubscribe = null;
+let financeSyncRunning = false;
 
 function mgOwner() { return currentUser?.uid || 'local'; }
 function mgKey(name) { return `modagestao_${mgOwner()}_${name}`; }
@@ -12,6 +15,35 @@ function mgMoney(value) {
   return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 function getManagementClients() { return mgRead('clients'); }
+
+function loadFinancialEntries() {
+  if (financialUnsubscribe) financialUnsubscribe();
+  financialUnsubscribe = db.collection('financialEntries').onSnapshot(snapshot => {
+    allFinancialEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    allFinancialEntries.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    if (managementTab === 'finance') renderManagement();
+    syncExistingSalesToFinance();
+  }, error => {
+    console.error('Erro ao carregar financeiro:', error);
+    showToast('Erro ao sincronizar os dados financeiros.', 'danger');
+  });
+}
+
+async function syncExistingSalesToFinance() {
+  if (financeSyncRunning || !Array.isArray(allSales)) return;
+  const registeredSaleIds = new Set(allFinancialEntries.map(entry => entry.saleId).filter(Boolean));
+  const missingSales = allSales.filter(sale => sale.status === 'CONCLUIDA' && !registeredSaleIds.has(sale.saleId || sale.id));
+  if (!missingSales.length) return;
+  financeSyncRunning = true;
+  try {
+    for (const sale of missingSales) await ensureSaleFinancialEntries(sale);
+  } catch (error) {
+    console.error('Erro ao sincronizar vendas antigas com o financeiro:', error);
+    showToast('Não foi possível sincronizar algumas vendas com o financeiro.', 'warning');
+  } finally {
+    financeSyncRunning = false;
+  }
+}
 
 let managementTab = 'clients';
 function initManagement() {
@@ -69,7 +101,8 @@ function deleteClient(id) {
 }
 
 function renderFinance() {
-  const entries = mgRead('finance');
+  const entries = allFinancialEntries.filter(entry => entry.status !== 'cancelled');
+  syncExistingSalesToFinance();
   const income = entries.filter(e => e.type === 'income' && e.status !== 'pending').reduce((s, e) => s + Number(e.amount), 0);
   const expense = entries.filter(e => e.type === 'expense').reduce((s, e) => s + Number(e.amount), 0);
   const receivable = entries.filter(e => e.status === 'pending').reduce((s, e) => s + Number(e.amount), 0);
@@ -93,59 +126,29 @@ function renderFinance() {
         </tbody></table></div></div>
     </div>`;
 }
-function saveFinanceEntry(event) {
-  event.preventDefault(); const data = new FormData(event.target); const entries = mgRead('finance');
-  entries.unshift({ id: mgId(), type: data.get('type'), amount: Number(data.get('amount')), description: data.get('description').trim(), dueDate: data.get('dueDate'), status: 'paid', createdAt: new Date().toISOString() });
-  mgWrite('finance', entries); event.target.reset(); renderManagement(); showToast('Lançamento registrado.', 'success');
-}
-function settleFinance(id) {
-  const entries = mgRead('finance'); const entry = entries.find(e => e.id === id);
-  if (entry) { entry.status = 'paid'; entry.paidAt = new Date().toISOString(); mgWrite('finance', entries); renderManagement(); showToast('Recebimento confirmado.', 'success'); }
-}
-function recordStoreCredit(saleId, clientId, dueDate, amount, installments = 1) {
-  const client = getManagementClients().find(c => c.id === clientId); const entries = mgRead('finance');
-  const totalCents = Math.round(Number(amount) * 100);
-  const baseCents = Math.floor(totalCents / installments);
-  const firstDueDate = new Date(dueDate + 'T12:00:00');
-  const dueDay = firstDueDate.getDate();
-  for (let index = 0; index < installments; index++) {
-    const installmentCents = index === installments - 1
-      ? totalCents - (baseCents * (installments - 1))
-      : baseCents;
-    const installmentDue = addMonthsKeepingDay(firstDueDate, index, dueDay);
-    entries.push({
-      id: mgId(), type: 'income', amount: installmentCents / 100,
-      description: `Fiado de ${client?.name || 'cliente'} · venda #${String(saleId).slice(0, 8).toUpperCase()} · parcela ${index + 1}/${installments}`,
-      clientId, saleId, installment: index + 1, installments,
-      dueDate: installmentDue.toISOString().slice(0, 10), status: 'pending', createdAt: new Date().toISOString()
-    });
+async function saveFinanceEntry(event) {
+  event.preventDefault(); const data = new FormData(event.target);
+  try {
+    await db.collection('financialEntries').add({ type: data.get('type'), amount: Number(data.get('amount')), description: data.get('description').trim(), dueDate: data.get('dueDate'), status: 'paid', automatic: false, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: currentUser.uid });
+    event.target.reset(); showToast('Lançamento registrado.', 'success');
+  } catch (error) {
+    console.error('Erro ao salvar lançamento:', error); showToast('Erro ao salvar lançamento financeiro.', 'danger');
   }
-  entries.sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
-  mgWrite('finance', entries);
 }
-
-function addMonthsKeepingDay(date, months, preferredDay) {
-  const result = new Date(date);
-  result.setDate(1);
-  result.setMonth(result.getMonth() + months);
-  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
-  result.setDate(Math.min(preferredDay, lastDay));
-  return result;
+async function settleFinance(id) {
+  try {
+    await db.collection('financialEntries').doc(id).update({ status: 'paid', paidAt: firebase.firestore.FieldValue.serverTimestamp(), paidBy: currentUser.uid });
+    showToast('Recebimento confirmado.', 'success');
+  } catch (error) {
+    console.error('Erro ao confirmar recebimento:', error); showToast('Erro ao confirmar recebimento.', 'danger');
+  }
 }
-
 function renderTeam() {
   return `<div class="table-container management-form" style="max-width:760px;"><h3><i class="fa-solid fa-user-shield"></i> Acessos gerenciados pelo Firebase</h3>
     <p style="color:var(--text-secondary); line-height:1.7;">O cadastro público está desativado. Para liberar uma pessoa, crie a conta em <b>Firebase Authentication</b> e depois crie o perfil autorizado na coleção <b>users</b> do Firestore usando o mesmo UID.</p>
     <div class="auth-access-steps"><div><b>1.</b> Authentication → Users → Add user</div><div><b>2.</b> Copie o UID criado</div><div><b>3.</b> Firestore → users → Add document</div><div><b>4.</b> Use o UID como ID e informe active = true</div></div>
     <p class="form-help">Para bloquear alguém sem apagar o histórico, altere o campo <b>active</b> para <b>false</b>.</p></div>`;
 }
-function saveTeamMember(event) {
-  event.preventDefault(); const data = new FormData(event.target); const members = mgRead('team');
-  members.unshift({ id: mgId(), name: data.get('name').trim(), email: data.get('email').trim(), role: data.get('role') });
-  mgWrite('team', members); event.target.reset(); renderManagement(); showToast('Perfil de acesso adicionado.', 'success');
-}
-function deleteTeamMember(id) { if (confirm('Remover este acesso?')) { mgWrite('team', mgRead('team').filter(m => m.id !== id)); renderManagement(); } }
-
 function renderAI() {
   const settings = mgRead('integrations')[0] || {};
   return `<div class="management-grid">
