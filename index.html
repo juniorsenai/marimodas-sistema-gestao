@@ -654,6 +654,9 @@
           <label for="prod-barcode"><i class="fa-solid fa-barcode"></i> Código de Barras / QR Code</label>
           <div style="display:flex; gap:10px;">
             <input type="text" id="prod-barcode" class="form-control" placeholder="Código EAN/QR..." />
+            <button type="button" class="btn btn-secondary" onclick="generateProductBarcode()" title="Gerar novo código EAN-13">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Gerar
+            </button>
             <button type="button" class="btn btn-secondary" onclick="openProductBarcodeScanner()" title="Ler código com câmera">
               <i class="fa-solid fa-camera"></i>
             </button>

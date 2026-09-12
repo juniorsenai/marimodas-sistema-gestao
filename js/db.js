@@ -246,11 +246,16 @@ async function ensureSaleFinancialEntries(sale) {
   await batch.commit();
 }
 
-// Gerar código de barras aleatório de 12 dígitos se não fornecido
+// Gerar um EAN-13 válido para circulação interna da loja, com dígito verificador.
 function generateRandomBarcode() {
-  let result = '789'; // Código padrão nacional Brasil EAN
-  for (let i = 0; i < 9; i++) {
-    result += Math.floor(Math.random() * 10);
-  }
-  return result;
+  let barcode;
+  do {
+    let base = '200';
+    for (let i = 0; i < 9; i++) base += Math.floor(Math.random() * 10);
+    const weightedSum = base.split('').reduce((sum, digit, index) => {
+      return sum + Number(digit) * (index % 2 === 0 ? 1 : 3);
+    }, 0);
+    barcode = base + ((10 - (weightedSum % 10)) % 10);
+  } while (typeof allProducts !== 'undefined' && allProducts.some(product => product.barcode === barcode));
+  return barcode;
 }

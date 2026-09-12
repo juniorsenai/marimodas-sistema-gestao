@@ -145,6 +145,14 @@ function closeProductModal() {
   document.getElementById('product-modal').classList.remove('active');
 }
 
+function generateProductBarcode() {
+  const field = document.getElementById('prod-barcode');
+  if (!field) return;
+  if (field.value && !confirm('Substituir o código atual por um novo código EAN-13?')) return;
+  field.value = generateRandomBarcode();
+  showToast('Código EAN-13 gerado. Salve a peça para imprimir a etiqueta.', 'success');
+}
+
 // Salvar Produto (Submit)
 async function handleProductFormSubmit(e) {
   e.preventDefault();
@@ -165,6 +173,14 @@ async function handleProductFormSubmit(e) {
 
   if (!productData.name || !productData.sellPrice) {
     showToast("Preencha o nome e o preço de venda da peça.", "warning");
+    return;
+  }
+
+  const duplicatedBarcode = allProducts.some(product =>
+    product.barcode === productData.barcode && product.id !== currentEditingProductId
+  );
+  if (productData.barcode && duplicatedBarcode) {
+    showToast('Este código de barras já pertence a outra peça.', 'warning');
     return;
   }
 
@@ -271,8 +287,9 @@ function openPrintLabelModal(productId) {
 
   // Gerar Código de Barras com JsBarcode
   try {
-    JsBarcode("#label-barcode-svg", product.barcode || "000000000000", {
-      format: "CODE128",
+    const barcode = product.barcode || "0000000000000";
+    JsBarcode("#label-barcode-svg", barcode, {
+      format: /^\d{13}$/.test(barcode) ? "EAN13" : "CODE128",
       lineColor: "#000",
       width: 2,
       height: 50,

@@ -10,6 +10,7 @@ Sistema completo de gestão para negócios de moda, com **PDV**, **Controle de E
 - 📦 **Controle de Estoque** com atributos específicos de moda (Tamanho, Cor, Categoria)
 - 📲 **Leitor de QR Code / Código de Barras** usando a câmera do dispositivo
 - 🖨️ **Gerador e impressor de Etiquetas** com código de barras
+- 🪄 **Gerador de código EAN-13** para peças sem código de fábrica
 - 🛒 **PDV (Ponto de Venda)** com carrinho, desconto, troco automático
 - 💳 **Formas de Pagamento**: Dinheiro, PIX, Cartão de Crédito e Débito
 - 🧾 **Recibo Digital** imprimível com comprovante
