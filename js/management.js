@@ -119,13 +119,15 @@ function renderFinance() {
   const entries = allFinancialEntries.filter(entry => entry.status !== 'cancelled');
   syncExistingSalesToFinance();
   const income = entries.filter(e => e.type === 'income' && e.status !== 'pending').reduce((s, e) => s + Number(e.amount), 0);
-  const expense = entries.filter(e => e.type === 'expense').reduce((s, e) => s + Number(e.amount), 0);
+  const expense = entries.filter(e => e.type === 'expense' && e.status !== 'pending').reduce((s, e) => s + Number(e.amount), 0);
   const receivable = entries.filter(e => e.status === 'pending').reduce((s, e) => s + Number(e.amount), 0);
+  const balance = income - expense;
   return `
     <div class="stats-grid compact-stats">
       <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div><div class="stat-info"><h3>${mgMoney(income)}</h3><p>Entradas</p></div></div>
       <div class="stat-card"><div class="stat-icon pink"><i class="fa-solid fa-arrow-trend-down"></i></div><div class="stat-info"><h3>${mgMoney(expense)}</h3><p>Saídas</p></div></div>
       <div class="stat-card"><div class="stat-icon amber"><i class="fa-solid fa-clock"></i></div><div class="stat-info"><h3>${mgMoney(receivable)}</h3><p>A receber (fiado)</p></div></div>
+      <div class="stat-card"><div class="stat-icon ${balance < 0 ? 'pink' : 'purple'}"><i class="fa-solid fa-scale-balanced"></i></div><div class="stat-info"><h3 style="color:${balance < 0 ? 'var(--danger)' : 'var(--text-primary)'}">${mgMoney(balance)}</h3><p>Saldo atual</p></div></div>
     </div>
     <div class="management-grid">
       <form class="table-container management-form" onsubmit="saveFinanceEntry(event)">

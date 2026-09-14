@@ -1096,7 +1096,7 @@ body {
 .list-heading span, .form-help { color:var(--text-muted); font-size:.82rem; }
 .form-help { display:block; line-height:1.5; margin-top:12px; }
 .empty-cell { text-align:center; color:var(--text-muted); padding:2rem !important; }
-.compact-stats { margin-bottom:1.25rem; grid-template-columns:repeat(3, 1fr); }
+.compact-stats { margin-bottom:1.25rem; grid-template-columns:repeat(4, 1fr); }
 .amount-in { color:var(--success); font-weight:700; }
 .amount-out { color:var(--danger); font-weight:700; }
 .card-fee-preview { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-size:.82rem; }
