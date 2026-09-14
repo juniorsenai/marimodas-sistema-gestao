@@ -106,7 +106,9 @@ async function processSaleTransaction(saleData) {
     installments: parseInt(saleData.installments) || 1,
     cardInstallments: parseInt(saleData.cardInstallments) || 1,
     cardFeeRate: parseFloat(saleData.cardFeeRate) || 0,
+    cardFeePayer: saleData.cardFeePayer || '',
     cardFeeAmount: parseFloat(saleData.cardFeeAmount) || 0,
+    chargedTotal: parseFloat(saleData.chargedTotal ?? saleData.total),
     netTotal: parseFloat(saleData.netTotal ?? saleData.total),
     cashReceived: parseFloat(saleData.cashReceived || 0),
     changeGiven: parseFloat(saleData.changeGiven || 0),
@@ -220,7 +222,7 @@ function addSaleFinancialEntriesToBatch(batch, sale, saleId, timestamp) {
     }, { merge: true });
   }
 
-  if (sale.paymentMethod === 'CARTAO_CREDITO' && Number(sale.cardFeeAmount) > 0) {
+  if (sale.paymentMethod === 'CARTAO_CREDITO' && sale.cardFeePayer !== 'CUSTOMER' && Number(sale.cardFeeAmount) > 0) {
     const feeRef = db.collection('financialEntries').doc(`sale_${saleId}_fee`);
     batch.set(feeRef, {
       type: 'expense',

@@ -199,7 +199,7 @@ function openSaleDetailsModal(saleId) {
       ` : ''}
       ${sale.paymentMethod === 'CARTAO_CREDITO' ? `
         <p style="color:var(--text-muted); font-size:0.85rem;">
-          Parcelamento: ${sale.cardInstallments || 1}x | Taxa: ${(sale.cardFeeRate || 0).toFixed(2)}% | Custo: R$ ${(sale.cardFeeAmount || 0).toFixed(2)} | Líquido: R$ ${(sale.netTotal ?? sale.total ?? 0).toFixed(2)}
+          Parcelamento: ${sale.cardInstallments || 1}x | Taxa: ${(sale.cardFeeRate || 0).toFixed(2)}% | Taxa paga por: ${sale.cardFeePayer === 'CUSTOMER' ? 'Cliente' : 'Loja'} | Cobrado: R$ ${(sale.chargedTotal ?? sale.total ?? 0).toFixed(2)} | Loja recebe: R$ ${(sale.netTotal ?? sale.total ?? 0).toFixed(2)}
         </p>
       ` : ''}
     </div>

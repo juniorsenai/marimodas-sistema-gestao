@@ -244,6 +244,9 @@ function openCheckoutModal() {
   if (creditSection) creditSection.style.display = 'none';
   const cardSection = document.getElementById('card-credit-section');
   if (cardSection) cardSection.style.display = 'none';
+  const feePayer = document.getElementById('card-fee-payer');
+  if (feePayer) feePayer.value = 'STORE';
+  resetCheckoutCardTotals(total);
 
   document.getElementById('checkout-modal').classList.add('active');
 }
@@ -267,6 +270,7 @@ function selectPaymentMethod(method) {
   const cardSection = document.getElementById('card-credit-section');
   if (cardSection) cardSection.style.display = method === 'CARTAO_CREDITO' ? 'block' : 'none';
   if (method === 'CARTAO_CREDITO') updateCardFeePreview();
+  else resetCheckoutCardTotals(getCurrentCartTotal());
 }
 
 function getCurrentCartTotal() {
@@ -290,10 +294,32 @@ function updateCardCreditInstallments(total = getCurrentCartTotal()) {
 function updateCardFeePreview(total = getCurrentCartTotal()) {
   const installments = Number(document.getElementById('card-credit-installments')?.value || 1);
   const rate = window.getCardFeeRate ? getCardFeeRate(installments) : 0;
-  const fee = total * rate / 100;
-  const net = total - fee;
+  const feePayer = document.getElementById('card-fee-payer')?.value || 'STORE';
+  const payment = calculateCardPayment(total, rate, feePayer);
   const preview = document.getElementById('card-fee-preview');
-  if (preview) preview.innerHTML = `<span>Taxa Mercado Pago<b>${rate.toFixed(2).replace('.', ',')}%</b></span><span>Custo da taxa<b>R$ ${fee.toFixed(2).replace('.', ',')}</b></span><span>Valor líquido<b>R$ ${net.toFixed(2).replace('.', ',')}</b></span>`;
+  if (preview) preview.innerHTML = `<span>Taxa Mercado Pago<b>${rate.toFixed(2).replace('.', ',')}%</b></span><span>${feePayer === 'CUSTOMER' ? 'Acréscimo ao cliente' : 'Custo para a loja'}<b>R$ ${payment.feeAmount.toFixed(2).replace('.', ',')}</b></span><span>Loja recebe<b>R$ ${payment.netAmount.toFixed(2).replace('.', ',')}</b></span>`;
+  const feeRow = document.getElementById('checkout-card-fee-row');
+  const feeValue = document.getElementById('checkout-card-fee');
+  if (feeRow) feeRow.style.display = feePayer === 'CUSTOMER' && payment.feeAmount > 0 ? 'flex' : 'none';
+  if (feeValue) feeValue.textContent = `+ R$ ${payment.feeAmount.toFixed(2).replace('.', ',')}`;
+  const totalElement = document.getElementById('checkout-total');
+  if (totalElement) totalElement.textContent = `R$ ${payment.chargedTotal.toFixed(2).replace('.', ',')}`;
+}
+
+function calculateCardPayment(total, rate, feePayer) {
+  if (feePayer === 'CUSTOMER' && rate > 0 && rate < 100) {
+    const chargedTotal = Number((total / (1 - rate / 100)).toFixed(2));
+    return { chargedTotal, feeAmount: Number((chargedTotal - total).toFixed(2)), netAmount: total };
+  }
+  const feeAmount = Number((total * rate / 100).toFixed(2));
+  return { chargedTotal: total, feeAmount, netAmount: Number((total - feeAmount).toFixed(2)) };
+}
+
+function resetCheckoutCardTotals(total) {
+  const feeRow = document.getElementById('checkout-card-fee-row');
+  if (feeRow) feeRow.style.display = 'none';
+  const totalElement = document.getElementById('checkout-total');
+  if (totalElement) totalElement.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
 }
 
 function getStoreCreditMaxInstallments(total) {
@@ -340,7 +366,10 @@ async function finalizeSale() {
   const creditInstallments = Number(document.getElementById('store-credit-installments')?.value || 1);
   const cardInstallments = Number(document.getElementById('card-credit-installments')?.value || 1);
   const cardFeeRate = paymentMethod === 'CARTAO_CREDITO' && window.getCardFeeRate ? getCardFeeRate(cardInstallments) : 0;
-  const cardFeeAmount = paymentMethod === 'CARTAO_CREDITO' ? Number((total * cardFeeRate / 100).toFixed(2)) : 0;
+  const cardFeePayer = paymentMethod === 'CARTAO_CREDITO' ? (document.getElementById('card-fee-payer')?.value || 'STORE') : '';
+  const cardPayment = paymentMethod === 'CARTAO_CREDITO'
+    ? calculateCardPayment(total, cardFeeRate, cardFeePayer)
+    : { chargedTotal: total, feeAmount: 0, netAmount: total };
 
   if (paymentMethod === 'DINHEIRO' && cashReceived < total) {
     showToast("O valor recebido é menor que o total da venda.", "danger");
@@ -383,8 +412,10 @@ async function finalizeSale() {
       installments: paymentMethod === 'CREDITO_LOJA' ? creditInstallments : 1,
       cardInstallments: paymentMethod === 'CARTAO_CREDITO' ? cardInstallments : 1,
       cardFeeRate,
-      cardFeeAmount,
-      netTotal: total - cardFeeAmount,
+      cardFeePayer,
+      cardFeeAmount: cardPayment.feeAmount,
+      chargedTotal: cardPayment.chargedTotal,
+      netTotal: cardPayment.netAmount,
       cashReceived,
       changeGiven: Math.max(cashReceived - total, 0)
     };
@@ -451,8 +482,9 @@ function openReceiptModal(sale) {
     <div style="margin-top:12px; padding-top:8px; border-top:1px dashed #ccc;">
       <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>R$ ${sale.subtotal.toFixed(2)}</span></div>
       ${sale.discount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Desconto:</span><span>- R$ ${sale.discount.toFixed(2)}</span></div>` : ''}
+      ${sale.paymentMethod === 'CARTAO_CREDITO' && sale.cardFeePayer === 'CUSTOMER' && sale.cardFeeAmount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Acréscimo da taxa:</span><span>R$ ${sale.cardFeeAmount.toFixed(2)}</span></div>` : ''}
       <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem; margin-top:4px;">
-        <span>TOTAL:</span><span>R$ ${sale.total.toFixed(2)}</span>
+        <span>TOTAL:</span><span>R$ ${(sale.chargedTotal ?? sale.total).toFixed(2)}</span>
       </div>
       <div style="margin-top:8px; font-size:0.85rem; color:#555;">
         <div><b>Pagamento:</b> ${paymentLabels[sale.paymentMethod] || sale.paymentMethod}</div>

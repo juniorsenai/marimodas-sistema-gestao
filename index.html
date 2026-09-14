@@ -784,6 +784,7 @@
       <div style="background:rgba(15,23,42,0.5); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem;">
         <div class="summary-row" style="margin-bottom:6px;"><span>Subtotal</span><span id="checkout-subtotal">R$ 0,00</span></div>
         <div class="summary-row" style="margin-bottom:6px;"><span>Desconto</span><span id="checkout-discount" style="color:var(--success);">- R$ 0,00</span></div>
+        <div class="summary-row" id="checkout-card-fee-row" style="display:none; margin-bottom:6px;"><span>Acréscimo da taxa</span><span id="checkout-card-fee" style="color:var(--warning);">+ R$ 0,00</span></div>
         <div class="summary-row total"><span>TOTAL A PAGAR</span><span id="checkout-total">R$ 0,00</span></div>
       </div>
 
@@ -829,6 +830,13 @@
         <div class="form-group" style="margin-bottom:10px;">
           <label for="card-credit-installments"><i class="fa-solid fa-calendar-days"></i> Parcelamento no cartão</label>
           <select id="card-credit-installments" class="form-control" onchange="updateCardFeePreview()"></select>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label for="card-fee-payer"><i class="fa-solid fa-hand-holding-dollar"></i> Quem paga a taxa?</label>
+          <select id="card-fee-payer" class="form-control" onchange="updateCardFeePreview()">
+            <option value="STORE">A loja paga — cliente paga o valor da compra</option>
+            <option value="CUSTOMER">O cliente paga — acrescentar ao valor final</option>
+          </select>
         </div>
         <div id="card-fee-preview" class="card-fee-preview"></div>
       </div>
