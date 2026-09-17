@@ -332,9 +332,9 @@ function openInventoryScanner() {
       showToast(`Produto encontrado: ${results[0].name}`, "success");
     } else {
       showToast(`Nenhum produto com código "${code}" encontrado. Deseja cadastrar?`, "warning");
+      openProductModal();
       const barcodeField = document.getElementById('prod-barcode');
       if (barcodeField) barcodeField.value = code;
-      openProductModal();
     }
   }, 'inventory-reader');
 }

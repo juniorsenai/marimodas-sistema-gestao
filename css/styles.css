@@ -1124,3 +1124,20 @@ body {
   .management-tab { padding:10px 12px; }
   .card-fee-preview, .fee-rate-grid { grid-template-columns:1fr 1fr; }
 }
+
+/* Tablet: catálogo e carrinho permanecem lado a lado, usando toda a tela. */
+@media (min-width: 700px) and (max-width: 1100px) {
+  .sidebar { display:none; }
+  .mobile-header, .mobile-bottom-nav { display:flex; }
+  .main-content { margin-left:0; padding:80px 1rem 90px; }
+  .pdv-container { grid-template-columns:minmax(0, 1fr) 320px; gap:1rem; }
+  .pdv-catalog { min-width:0; }
+  .pdv-catalog .product-grid { grid-template-columns:repeat(auto-fill, minmax(145px, 1fr)); gap:.8rem; }
+  .pdv-catalog .product-card { padding:.85rem; }
+  .pdv-cart { height:calc(100vh - 165px); position:sticky; top:80px; padding:1rem; }
+}
+
+/* Em telas estreitas, o carrinho aparece antes do catálogo. */
+@media (max-width: 699px) {
+  .pdv-cart { order:-1; }
+}
