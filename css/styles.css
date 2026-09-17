@@ -1103,9 +1103,14 @@ body {
 .inventory-capital-control h3 { font-size:1rem; margin-bottom:3px; }
 .inventory-capital-control h3 i { color:var(--warning); margin-right:6px; }
 .inventory-capital-control p { color:var(--text-muted); font-size:.84rem; }
-.inventory-capital-result { grid-column:1/-1; display:flex; flex-direction:column; padding:1rem; border:1px solid rgba(245,158,11,.25); background:rgba(245,158,11,.07); border-radius:var(--radius-md); }
-.inventory-capital-result span, .inventory-capital-result small { color:var(--text-secondary); }
-.inventory-capital-result strong { font-size:1.8rem; color:var(--warning); margin:3px 0; }
+.inventory-capital-result { grid-column:1/-1; display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+.inventory-value-card { display:flex; flex-direction:column; padding:1rem; border:1px solid var(--border-color); background:var(--bg-card); border-radius:var(--radius-md); }
+.inventory-value-card span, .inventory-value-card small { color:var(--text-secondary); }
+.inventory-value-card strong { font-size:1.55rem; margin:3px 0; }
+.inventory-value-card.invested strong { color:var(--warning); }
+.inventory-value-card.expected strong { color:var(--success); }
+.inventory-value-card.margin strong { color:var(--accent-primary); }
+.inventory-capital-summary { grid-column:1/-1; padding:2px 4px; color:var(--text-secondary); font-size:.82rem; }
 .card-fee-preview { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-size:.82rem; }
 .card-fee-preview > span { padding:9px; border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text-secondary); }
 .card-fee-preview b { display:block; color:var(--text-primary); margin-top:2px; }
@@ -1132,6 +1137,8 @@ body {
   .inventory-capital-control { grid-template-columns:1fr; }
   .inventory-capital-control .btn { width:100%; }
   .inventory-capital-result { grid-column:1; }
+  .inventory-capital-result { grid-template-columns:1fr; }
+  .inventory-capital-summary { grid-column:1; }
   .card-fee-preview, .fee-rate-grid { grid-template-columns:1fr 1fr; }
 }
 

@@ -124,8 +124,11 @@ function renderFinance() {
   const receivable = entries.filter(e => e.status === 'pending').reduce((s, e) => s + Number(e.amount), 0);
   const balance = income - expense;
   const inventoryCapital = (allProducts || []).reduce((sum, product) => sum + (Number(product.costPrice) || 0) * (Number(product.stockQty) || 0), 0);
+  const inventoryExpectedRevenue = (allProducts || []).reduce((sum, product) => sum + (Number(product.sellPrice) || 0) * (Number(product.stockQty) || 0), 0);
+  const inventoryPotentialMargin = inventoryExpectedRevenue - inventoryCapital;
   const inventoryUnits = (allProducts || []).reduce((sum, product) => sum + (Number(product.stockQty) || 0), 0);
   const productsWithoutCost = (allProducts || []).filter(product => Number(product.stockQty) > 0 && !(Number(product.costPrice) > 0)).length;
+  const productsWithoutSellPrice = (allProducts || []).filter(product => Number(product.stockQty) > 0 && !(Number(product.sellPrice) > 0)).length;
   return `
     <div class="stats-grid compact-stats">
       <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div><div class="stat-info"><h3>${mgMoney(income)}</h3><p>Entradas</p></div></div>
@@ -135,13 +138,18 @@ function renderFinance() {
     </div>
     <div class="inventory-capital-control table-container">
       <div>
-        <h3><i class="fa-solid fa-boxes-stacked"></i> Dinheiro investido no estoque</h3>
-        <p>Calculado pelo preço de custo × quantidade disponível.</p>
+        <h3><i class="fa-solid fa-boxes-stacked"></i> Valores do estoque</h3>
+        <p>Consulte o valor investido e o faturamento esperado com a venda das peças.</p>
       </div>
       <button class="btn btn-secondary" type="button" onclick="toggleInventoryCapital()">
         <i class="fa-solid ${showInventoryCapital ? 'fa-eye-slash' : 'fa-eye'}"></i> ${showInventoryCapital ? 'Ocultar valor' : 'Ver valor no estoque'}
       </button>
-      ${showInventoryCapital ? `<div class="inventory-capital-result"><span>Capital parado no estoque</span><strong>${mgMoney(inventoryCapital)}</strong><small>${inventoryUnits.toLocaleString('pt-BR')} unidade(s) disponível(is)${productsWithoutCost ? ` · ${productsWithoutCost} produto(s) sem preço de custo` : ''}</small></div>` : ''}
+      ${showInventoryCapital ? `<div class="inventory-capital-result">
+        <div class="inventory-value-card invested"><span>Dinheiro investido</span><strong>${mgMoney(inventoryCapital)}</strong><small>Preço de custo × estoque atual</small></div>
+        <div class="inventory-value-card expected"><span>Faturamento esperado</span><strong>${mgMoney(inventoryExpectedRevenue)}</strong><small>Preço de venda × estoque atual</small></div>
+        <div class="inventory-value-card margin"><span>Margem bruta potencial</span><strong>${mgMoney(inventoryPotentialMargin)}</strong><small>Esperado menos investido</small></div>
+        <p class="inventory-capital-summary">${inventoryUnits.toLocaleString('pt-BR')} unidade(s) disponível(is)${productsWithoutCost ? ` · ${productsWithoutCost} produto(s) sem preço de custo` : ''}${productsWithoutSellPrice ? ` · ${productsWithoutSellPrice} produto(s) sem preço de venda` : ''}</p>
+      </div>` : ''}
     </div>
     <div class="management-grid">
       <form class="table-container management-form" onsubmit="saveFinanceEntry(event)">
