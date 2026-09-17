@@ -1099,6 +1099,13 @@ body {
 .compact-stats { margin-bottom:1.25rem; grid-template-columns:repeat(4, 1fr); }
 .amount-in { color:var(--success); font-weight:700; }
 .amount-out { color:var(--danger); font-weight:700; }
+.inventory-capital-control { display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center; padding:1rem 1.25rem; margin-bottom:1.25rem; }
+.inventory-capital-control h3 { font-size:1rem; margin-bottom:3px; }
+.inventory-capital-control h3 i { color:var(--warning); margin-right:6px; }
+.inventory-capital-control p { color:var(--text-muted); font-size:.84rem; }
+.inventory-capital-result { grid-column:1/-1; display:flex; flex-direction:column; padding:1rem; border:1px solid rgba(245,158,11,.25); background:rgba(245,158,11,.07); border-radius:var(--radius-md); }
+.inventory-capital-result span, .inventory-capital-result small { color:var(--text-secondary); }
+.inventory-capital-result strong { font-size:1.8rem; color:var(--warning); margin:3px 0; }
 .card-fee-preview { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-size:.82rem; }
 .card-fee-preview > span { padding:9px; border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text-secondary); }
 .card-fee-preview b { display:block; color:var(--text-primary); margin-top:2px; }
@@ -1122,6 +1129,9 @@ body {
 @media (max-width: 600px) {
   .feature-list { grid-template-columns:1fr; }
   .management-tab { padding:10px 12px; }
+  .inventory-capital-control { grid-template-columns:1fr; }
+  .inventory-capital-control .btn { width:100%; }
+  .inventory-capital-result { grid-column:1; }
   .card-fee-preview, .fee-rate-grid { grid-template-columns:1fr 1fr; }
 }
 

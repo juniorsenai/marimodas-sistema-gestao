@@ -3,6 +3,7 @@ const MG_LIMITS = { clients: 9000, products: 9000 };
 let allFinancialEntries = [];
 let financialUnsubscribe = null;
 let financeSyncRunning = false;
+let showInventoryCapital = false;
 let systemSettings = { whatsapp: '', terminal: 'Mercado Pago', cardFeeRates: {} };
 let settingsUnsubscribe = null;
 
@@ -122,12 +123,25 @@ function renderFinance() {
   const expense = entries.filter(e => e.type === 'expense' && e.status !== 'pending').reduce((s, e) => s + Number(e.amount), 0);
   const receivable = entries.filter(e => e.status === 'pending').reduce((s, e) => s + Number(e.amount), 0);
   const balance = income - expense;
+  const inventoryCapital = (allProducts || []).reduce((sum, product) => sum + (Number(product.costPrice) || 0) * (Number(product.stockQty) || 0), 0);
+  const inventoryUnits = (allProducts || []).reduce((sum, product) => sum + (Number(product.stockQty) || 0), 0);
+  const productsWithoutCost = (allProducts || []).filter(product => Number(product.stockQty) > 0 && !(Number(product.costPrice) > 0)).length;
   return `
     <div class="stats-grid compact-stats">
       <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div><div class="stat-info"><h3>${mgMoney(income)}</h3><p>Entradas</p></div></div>
       <div class="stat-card"><div class="stat-icon pink"><i class="fa-solid fa-arrow-trend-down"></i></div><div class="stat-info"><h3>${mgMoney(expense)}</h3><p>Saídas</p></div></div>
       <div class="stat-card"><div class="stat-icon amber"><i class="fa-solid fa-clock"></i></div><div class="stat-info"><h3>${mgMoney(receivable)}</h3><p>A receber (fiado)</p></div></div>
       <div class="stat-card"><div class="stat-icon ${balance < 0 ? 'pink' : 'purple'}"><i class="fa-solid fa-scale-balanced"></i></div><div class="stat-info"><h3 style="color:${balance < 0 ? 'var(--danger)' : 'var(--text-primary)'}">${mgMoney(balance)}</h3><p>Saldo atual</p></div></div>
+    </div>
+    <div class="inventory-capital-control table-container">
+      <div>
+        <h3><i class="fa-solid fa-boxes-stacked"></i> Dinheiro investido no estoque</h3>
+        <p>Calculado pelo preço de custo × quantidade disponível.</p>
+      </div>
+      <button class="btn btn-secondary" type="button" onclick="toggleInventoryCapital()">
+        <i class="fa-solid ${showInventoryCapital ? 'fa-eye-slash' : 'fa-eye'}"></i> ${showInventoryCapital ? 'Ocultar valor' : 'Ver valor no estoque'}
+      </button>
+      ${showInventoryCapital ? `<div class="inventory-capital-result"><span>Capital parado no estoque</span><strong>${mgMoney(inventoryCapital)}</strong><small>${inventoryUnits.toLocaleString('pt-BR')} unidade(s) disponível(is)${productsWithoutCost ? ` · ${productsWithoutCost} produto(s) sem preço de custo` : ''}</small></div>` : ''}
     </div>
     <div class="management-grid">
       <form class="table-container management-form" onsubmit="saveFinanceEntry(event)">
@@ -142,6 +156,11 @@ function renderFinance() {
         ${entries.length ? entries.map(e => `<tr><td>${escapeHtml(e.description)}</td><td class="${e.type === 'expense' ? 'amount-out' : 'amount-in'}">${mgMoney(e.amount)}</td><td>${e.dueDate ? new Date(e.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td><td><span class="badge ${e.status === 'pending' ? 'badge-warning' : 'badge-success'}">${e.status === 'pending' ? 'Pendente' : 'Pago'}</span></td><td>${e.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="settleFinance('${e.id}')">Receber</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum lançamento.</td></tr>'}
         </tbody></table></div></div>
     </div>`;
+}
+
+function toggleInventoryCapital() {
+  showInventoryCapital = !showInventoryCapital;
+  renderManagement();
 }
 async function saveFinanceEntry(event) {
   event.preventDefault(); const data = new FormData(event.target);
