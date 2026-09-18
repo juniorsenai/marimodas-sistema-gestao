@@ -238,6 +238,10 @@ function openCheckoutModal() {
     due.value = date.toISOString().slice(0, 10);
   }
   if (window.refreshStoreCreditClients) refreshStoreCreditClients();
+  const saleClient = document.getElementById('sale-client');
+  if (saleClient) saleClient.value = '';
+  const quickClientForm = document.getElementById('quick-client-form');
+  if (quickClientForm) { quickClientForm.reset(); quickClientForm.style.display = 'none'; }
   updateStoreCreditInstallments(total);
   updateCardCreditInstallments(total);
   const creditSection = document.getElementById('store-credit-section');
@@ -361,7 +365,7 @@ async function finalizeSale() {
   const total = Math.max(subtotal - discount, 0);
   const paymentMethod = selectedPaymentBtn.dataset.payment;
   const cashReceived = parseFloat(document.getElementById('cash-received')?.value || total) || total;
-  const creditClientId = document.getElementById('store-credit-client')?.value || '';
+  const clientId = document.getElementById('sale-client')?.value || '';
   const creditDueDate = document.getElementById('store-credit-due')?.value || '';
   const creditInstallments = Number(document.getElementById('store-credit-installments')?.value || 1);
   const cardInstallments = Number(document.getElementById('card-credit-installments')?.value || 1);
@@ -376,8 +380,12 @@ async function finalizeSale() {
     return;
   }
 
-  if (paymentMethod === 'CREDITO_LOJA' && (!creditClientId || !creditDueDate)) {
-    showToast('Selecione o cliente e informe o vencimento do fiado.', 'warning');
+  if (!clientId) {
+    showToast('Selecione ou cadastre o cliente antes de concluir a venda.', 'warning');
+    return;
+  }
+  if (paymentMethod === 'CREDITO_LOJA' && !creditDueDate) {
+    showToast('Informe o vencimento do fiado.', 'warning');
     return;
   }
   if (paymentMethod === 'CREDITO_LOJA' && (creditInstallments < 1 || creditInstallments > getStoreCreditMaxInstallments(total))) {
@@ -406,8 +414,8 @@ async function finalizeSale() {
       discount,
       total,
       paymentMethod,
-      clientId: paymentMethod === 'CREDITO_LOJA' ? creditClientId : '',
-      clientName: paymentMethod === 'CREDITO_LOJA' ? (getManagementClients().find(c => c.id === creditClientId)?.name || '') : '',
+      clientId,
+      clientName: getManagementClients().find(c => c.id === clientId)?.name || '',
       dueDate: paymentMethod === 'CREDITO_LOJA' ? creditDueDate : '',
       installments: paymentMethod === 'CREDITO_LOJA' ? creditInstallments : 1,
       cardInstallments: paymentMethod === 'CARTAO_CREDITO' ? cardInstallments : 1,
@@ -477,6 +485,7 @@ function openReceiptModal(sale) {
       <hr style="border:none; border-top:1px dashed #ccc; margin:8px 0;">
       <p style="font-size:0.8rem; color:#444;">${dateStr} às ${timeStr}</p>
       <p style="font-size:0.78rem; color:#666;">Pedido: #${sale.saleId ? sale.saleId.substring(0, 8).toUpperCase() : 'XXXXXXXX'}</p>
+      <p style="font-size:0.78rem; color:#666;">Cliente: ${escapeHtml(sale.clientName || '—')}</p>
     </div>
     <div>${itemsHtml}</div>
     <div style="margin-top:12px; padding-top:8px; border-top:1px dashed #ccc;">
@@ -487,6 +496,7 @@ function openReceiptModal(sale) {
         <span>TOTAL:</span><span>R$ ${(sale.chargedTotal ?? sale.total).toFixed(2)}</span>
       </div>
       <div style="margin-top:8px; font-size:0.85rem; color:#555;">
+        <div><b>Cliente:</b> ${escapeHtml(sale.clientName || '—')}</div>
         <div><b>Pagamento:</b> ${paymentLabels[sale.paymentMethod] || sale.paymentMethod}</div>
         ${sale.paymentMethod === 'CARTAO_CREDITO' ? `<div><b>Parcelamento:</b> ${sale.cardInstallments || 1}x</div>` : ''}
         ${sale.paymentMethod === 'CREDITO_LOJA' ? `<div><b>Parcelamento:</b> ${sale.installments || 1}x</div><div><b>Primeiro vencimento:</b> ${new Date(sale.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}</div>` : ''}

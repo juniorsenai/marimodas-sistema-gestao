@@ -6,6 +6,8 @@ let financeSyncRunning = false;
 let showInventoryCapital = false;
 let systemSettings = { whatsapp: '', terminal: 'Mercado Pago', cardFeeRates: {} };
 let settingsUnsubscribe = null;
+let allManagementClients = [];
+let clientsUnsubscribe = null;
 
 function mgOwner() { return currentUser?.uid || 'local'; }
 function mgKey(name) { return `modagestao_${mgOwner()}_${name}`; }
@@ -17,7 +19,52 @@ function mgId() { return Date.now().toString(36) + Math.random().toString(36).sl
 function mgMoney(value) {
   return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
-function getManagementClients() { return mgRead('clients'); }
+function getManagementClients() { return allManagementClients; }
+
+function loadManagementClients() {
+  if (clientsUnsubscribe) clientsUnsubscribe();
+  clientsUnsubscribe = db.collection('clients').orderBy('name').onSnapshot(async snapshot => {
+    allManagementClients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const localClients = mgRead('clients');
+    if (localClients.length && !localStorage.getItem(mgKey('clients_migrated'))) {
+      localStorage.setItem(mgKey('clients_migrated'), '1');
+      const existing = new Map(allManagementClients.map(client => [`${String(client.name).trim().toLowerCase()}|${String(client.phone || '').replace(/\D/g, '')}`, client.id]));
+      for (const client of localClients) {
+        const key = `${String(client.name).trim().toLowerCase()}|${String(client.phone || '').replace(/\D/g, '')}`;
+        if (!existing.has(key)) {
+          const id = await createManagementClient(client);
+          existing.set(key, id);
+        } else if (client.id && existing.get(key) !== client.id) {
+          await relinkClientSales(client.id, existing.get(key), client.name);
+        }
+      }
+      return;
+    }
+    if (managementTab === 'clients') renderManagement();
+    refreshCheckoutClients();
+  }, error => {
+    console.error('Erro ao carregar clientes:', error);
+    showToast('Erro ao carregar o banco de clientes.', 'danger');
+  });
+}
+
+async function createManagementClient(client) {
+  const docRef = client.id ? db.collection('clients').doc(client.id) : db.collection('clients').doc();
+  await docRef.set({
+    name: String(client.name || '').trim(), phone: String(client.phone || '').trim(),
+    cpf: String(client.cpf || '').trim(), email: String(client.email || '').trim(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: currentUser?.uid || ''
+  });
+  return docRef.id;
+}
+
+async function relinkClientSales(oldClientId, newClientId, clientName) {
+  const snapshot = await db.collection('sales').where('clientId', '==', oldClientId).get();
+  if (snapshot.empty) return;
+  const batch = db.batch();
+  snapshot.docs.forEach(doc => batch.update(doc.ref, { clientId: newClientId, clientName: String(clientName || '').trim() }));
+  await batch.commit();
+}
 
 function loadSystemSettings() {
   if (settingsUnsubscribe) settingsUnsubscribe();
@@ -82,6 +129,7 @@ function renderManagement() {
 
 function renderClients() {
   const clients = getManagementClients();
+  const activeSales = (Array.isArray(allSales) ? allSales : []).filter(sale => sale.status !== 'CANCELADA');
   return `
     <div class="management-grid">
       <form class="table-container management-form" onsubmit="saveClient(event)">
@@ -96,24 +144,74 @@ function renderClients() {
       </form>
       <div class="table-container management-list">
         <div class="list-heading"><h3>Clientes cadastrados</h3><span>${clients.length.toLocaleString('pt-BR')} / 9.000</span></div>
-        <div class="custom-table-responsive"><table class="custom-table"><thead><tr><th>Nome</th><th>Contato</th><th>CPF</th><th>Ações</th></tr></thead>
-        <tbody>${clients.length ? clients.map(c => `<tr><td><b>${escapeHtml(c.name)}</b></td><td>${escapeHtml(c.phone || c.email || '—')}</td><td>${escapeHtml(c.cpf || '—')}</td><td><button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') : '<tr><td colspan="4" class="empty-cell">Nenhum cliente cadastrado.</td></tr>'}</tbody></table></div>
+        <div class="custom-table-responsive"><table class="custom-table"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Compras</th><th>Preferência</th><th>Ações</th></tr></thead>
+        <tbody>${clients.length ? clients.map(c => {
+          const sales = activeSales.filter(sale => sale.clientId === c.id);
+          const counts = sales.reduce((result, sale) => ({ ...result, [sale.paymentMethod]: (result[sale.paymentMethod] || 0) + 1 }), {});
+          const favorite = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+          return `<tr><td><b>${escapeHtml(c.name)}</b><small class="client-secondary">${escapeHtml(c.email || c.cpf || '')}</small></td><td>${c.phone ? `<a class="whatsapp-link" href="${getClientWhatsAppUrl(c.phone)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(c.phone)}</a>` : '—'}</td><td>${sales.length}</td><td>${favorite ? getPaymentLabel(favorite) : '—'}</td><td><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openClientProfile('${c.id}')" title="Ver perfil e histórico"><i class="fa-solid fa-chart-pie"></i></button>${c.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${c.id}')" title="Conversar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;
+        }).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum cliente cadastrado.</td></tr>'}</tbody></table></div>
       </div>
     </div>`;
 }
 
-function saveClient(event) {
+async function saveClient(event) {
   event.preventDefault();
   const clients = getManagementClients();
   if (clients.length >= MG_LIMITS.clients) return showToast('Limite de 9.000 clientes atingido.', 'warning');
   const data = new FormData(event.target);
-  clients.unshift({ id: mgId(), name: data.get('name').trim(), phone: data.get('phone').trim(), cpf: data.get('cpf').trim(), email: data.get('email').trim(), createdAt: new Date().toISOString() });
-  mgWrite('clients', clients); event.target.reset(); renderManagement(); refreshStoreCreditClients();
-  showToast('Cliente cadastrado com sucesso.', 'success');
+  try {
+    await createManagementClient({ name: data.get('name'), phone: data.get('phone'), cpf: data.get('cpf'), email: data.get('email') });
+    event.target.reset();
+    showToast('Cliente cadastrado com sucesso.', 'success');
+  } catch (error) {
+    console.error('Erro ao cadastrar cliente:', error);
+    showToast('Não foi possível cadastrar o cliente.', 'danger');
+  }
 }
-function deleteClient(id) {
+async function deleteClient(id) {
   if (!confirm('Excluir este cliente?')) return;
-  mgWrite('clients', getManagementClients().filter(c => c.id !== id)); renderManagement(); refreshStoreCreditClients();
+  try {
+    const sales = await db.collection('sales').where('clientId', '==', id).limit(1).get();
+    if (!sales.empty) return showToast('Este cliente possui histórico de compras e não pode ser excluído.', 'warning');
+    await db.collection('clients').doc(id).delete();
+  }
+  catch (error) { console.error(error); showToast('Não foi possível excluir o cliente.', 'danger'); }
+}
+
+function getClientWhatsAppUrl(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
+  return `https://wa.me/${digits}`;
+}
+
+function openClientWhatsApp(id) {
+  const client = getManagementClients().find(item => item.id === id);
+  if (!client?.phone) return showToast('Este cliente não possui WhatsApp cadastrado.', 'warning');
+  window.open(getClientWhatsAppUrl(client.phone), '_blank', 'noopener');
+}
+
+function getPaymentLabel(method) {
+  return ({ DINHEIRO: 'Dinheiro', PIX: 'PIX', CARTAO_CREDITO: 'Crédito', CARTAO_DEBITO: 'Débito', CREDITO_LOJA: 'Fiado' })[method] || method;
+}
+
+async function openClientProfile(id) {
+  const client = getManagementClients().find(item => item.id === id);
+  if (!client) return;
+  let sales = (Array.isArray(allSales) ? allSales : []).filter(sale => sale.clientId === id && sale.status !== 'CANCELADA');
+  try {
+    const snapshot = await db.collection('sales').where('clientId', '==', id).get();
+    sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(sale => sale.status !== 'CANCELADA');
+    sales.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+  } catch (error) { console.error('Erro ao buscar histórico completo do cliente:', error); }
+  const total = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+  const counts = sales.reduce((result, sale) => ({ ...result, [sale.paymentMethod]: (result[sale.paymentMethod] || 0) + 1 }), {});
+  const preferred = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const paymentSummary = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([method, count]) => `<span>${getPaymentLabel(method)}: <b>${count}</b></span>`).join('');
+  let modal = document.getElementById('client-profile-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'client-profile-modal'; modal.className = 'modal-overlay'; document.body.appendChild(modal); }
+  modal.innerHTML = `<div class="modal-card client-profile-card"><div class="modal-header"><h3><i class="fa-solid fa-user"></i> ${escapeHtml(client.name)}</h3><button class="modal-close" onclick="document.getElementById('client-profile-modal').classList.remove('active')"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="client-profile-stats"><div><span>Compras</span><strong>${sales.length}</strong></div><div><span>Total comprado</span><strong>${mgMoney(total)}</strong></div><div><span>Pagamento preferido</span><strong>${preferred ? getPaymentLabel(preferred) : '—'}</strong></div></div>${paymentSummary ? `<div class="client-payment-summary">${paymentSummary}</div>` : ''}<h4>Histórico de compras</h4><div class="client-history">${sales.length ? sales.map(sale => `<div><span><b>#${String(sale.saleId || sale.id).slice(0, 8).toUpperCase()}</b><small>${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleDateString('pt-BR') : '—'} · ${getPaymentLabel(sale.paymentMethod)}</small></span><strong>${mgMoney(sale.total)}</strong></div>`).join('') : '<p class="empty-cell">Nenhuma compra vinculada a este cliente.</p>'}</div></div><div class="modal-footer">${client.phone ? `<button class="btn btn-success" onclick="openClientWhatsApp('${client.id}')"><i class="fa-brands fa-whatsapp"></i> Conversar</button>` : ''}<button class="btn btn-secondary" onclick="document.getElementById('client-profile-modal').classList.remove('active')">Fechar</button></div></div>`;
+  modal.classList.add('active');
 }
 
 function renderFinance() {
@@ -245,11 +343,38 @@ function renderPlan() {
   return `<div class="plan-card table-container"><div class="plan-hero"><i class="fa-solid fa-store"></i><div><h2>Recursos da loja</h2><p>Sistema de gestão particular da MARIMODAS</p></div></div><div class="feature-list">${features.map(f => `<div><i class="fa-solid fa-circle-check"></i><span>${f}</span></div>`).join('')}</div><p class="form-help">Emissão de notas fiscais não está habilitada, conforme solicitado.</p></div>`;
 }
 
-function refreshStoreCreditClients() {
-  const select = document.getElementById('store-credit-client'); if (!select) return;
-  const selected = select.value;
-  select.innerHTML = '<option value="">Selecione um cliente</option>' + getManagementClients().map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-  select.value = selected;
+function refreshCheckoutClients(selectedId = '') {
+  ['sale-client', 'store-credit-client'].forEach(id => {
+    const select = document.getElementById(id); if (!select) return;
+    const selected = selectedId || select.value;
+    select.innerHTML = '<option value="">Selecione um cliente cadastrado</option>' + getManagementClients().map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    select.value = selected;
+  });
+}
+function refreshStoreCreditClients() { refreshCheckoutClients(); }
+
+function toggleQuickClientForm() {
+  const form = document.getElementById('quick-client-form');
+  if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveQuickClient(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  if (getManagementClients().length >= MG_LIMITS.clients) return showToast('Limite de 9.000 clientes atingido.', 'warning');
+  const button = event.submitter;
+  if (button) button.disabled = true;
+  try {
+    const client = { name: data.get('name'), phone: data.get('phone'), cpf: data.get('cpf'), email: data.get('email') };
+    const id = await createManagementClient(client);
+    if (!allManagementClients.some(item => item.id === id)) allManagementClients.push({ id, ...client });
+    refreshCheckoutClients(id);
+    event.target.reset(); event.target.style.display = 'none';
+    showToast('Cliente cadastrado e selecionado.', 'success');
+  } catch (error) {
+    console.error('Erro no cadastro rápido:', error);
+    showToast('Não foi possível cadastrar o cliente.', 'danger');
+  } finally { if (button) button.disabled = false; }
 }
 
 document.addEventListener('DOMContentLoaded', initManagement);

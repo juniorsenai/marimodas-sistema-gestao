@@ -47,6 +47,7 @@ function initAuthListener() {
       if (window.loadDashboardData) window.loadDashboardData();
       if (window.loadProducts) window.loadProducts();
       if (window.loadSales) window.loadSales();
+      if (window.loadManagementClients) window.loadManagementClients();
       if (window.loadFinancialEntries) window.loadFinancialEntries();
       if (window.loadSystemSettings) window.loadSystemSettings();
 

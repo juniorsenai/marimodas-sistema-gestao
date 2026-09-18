@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
   <!-- App Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=20260917-2" />
+  <link rel="stylesheet" href="css/styles.css?v=20260918-1" />
 
   <!-- Firebase SDK v9 Compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -775,7 +775,7 @@
 
 <!-- Modal: Finalizar Venda (Checkout) -->
 <div class="modal-overlay" id="checkout-modal">
-  <div class="modal-card" style="max-width:480px;">
+  <div class="modal-card" style="max-width:620px;">
     <div class="modal-header">
       <h3><i class="fa-solid fa-circle-dollar-to-slot"></i> Finalizar Venda</h3>
       <button class="modal-close" onclick="closeCheckoutModal()"><i class="fa-solid fa-xmark"></i></button>
@@ -788,6 +788,20 @@
         <div class="summary-row" id="checkout-card-fee-row" style="display:none; margin-bottom:6px;"><span>Acréscimo da taxa</span><span id="checkout-card-fee" style="color:var(--warning);">+ R$ 0,00</span></div>
         <div class="summary-row total"><span>TOTAL A PAGAR</span><span id="checkout-total">R$ 0,00</span></div>
       </div>
+
+      <div class="checkout-client-box">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="sale-client"><i class="fa-solid fa-user-check"></i> Cliente da venda *</label>
+          <select id="sale-client" class="form-control"><option value="">Selecione um cliente cadastrado</option></select>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="toggleQuickClientForm()"><i class="fa-solid fa-user-plus"></i> Novo cliente</button>
+      </div>
+      <form id="quick-client-form" class="quick-client-form" style="display:none;" onsubmit="saveQuickClient(event)">
+        <h4>Cadastro rápido — o carrinho será mantido</h4>
+        <div class="form-row"><div class="form-group"><label>Nome *</label><input class="form-control" name="name" required maxlength="100"></div><div class="form-group"><label>WhatsApp</label><input class="form-control" name="phone" inputmode="tel"></div></div>
+        <div class="form-row"><div class="form-group"><label>CPF</label><input class="form-control" name="cpf" inputmode="numeric"></div><div class="form-group"><label>E-mail</label><input class="form-control" name="email" type="email"></div></div>
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Cadastrar e selecionar</button>
+      </form>
 
       <!-- Método de Pagamento -->
       <h4 style="margin-bottom:12px; font-size:0.95rem; color:var(--text-secondary);">Forma de Pagamento</h4>
@@ -811,10 +825,6 @@
 
       <div id="store-credit-section" style="display:none; margin-bottom:1.25rem;">
         <div class="form-row">
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="store-credit-client"><i class="fa-solid fa-user"></i> Cliente *</label>
-            <select id="store-credit-client" class="form-control"><option value="">Selecione um cliente</option></select>
-          </div>
           <div class="form-group" style="margin-bottom:0;">
             <label for="store-credit-due"><i class="fa-solid fa-calendar-day"></i> Primeiro vencimento *</label>
             <input type="date" id="store-credit-due" class="form-control" />
@@ -904,13 +914,13 @@
      SCRIPTS JAVASCRIPT
      ======================================================== -->
 <script src="js/firebase-config.js?v=20260917-2"></script>
-<script src="js/auth.js?v=20260917-2"></script>
+<script src="js/auth.js?v=20260918-1"></script>
 <script src="js/db.js?v=20260917-2"></script>
 <script src="js/scanner.js?v=20260917-2"></script>
 <script src="js/inventory.js?v=20260917-2"></script>
-<script src="js/pdv.js?v=20260917-2"></script>
-<script src="js/sales.js?v=20260917-2"></script>
-<script src="js/management.js?v=20260917-2"></script>
+<script src="js/pdv.js?v=20260918-1"></script>
+<script src="js/sales.js?v=20260918-1"></script>
+<script src="js/management.js?v=20260918-1"></script>
 <script src="js/app.js?v=20260917-2"></script>
 
 <script>

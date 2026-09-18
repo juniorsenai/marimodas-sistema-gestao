@@ -13,6 +13,7 @@ function loadSales() {
     });
     renderSalesUI();
     if (window.updateDashboardStats) window.updateDashboardStats();
+    if (typeof managementTab !== 'undefined' && managementTab === 'clients' && window.renderManagement) window.renderManagement();
   }, error => {
     console.error("Erro ao carregar vendas:", error);
     showToast("Erro ao carregar histórico de vendas.", "danger");
@@ -33,6 +34,7 @@ function renderSalesUI() {
     const matchesSearch = !searchVal ||
       (sale.saleId && sale.saleId.toLowerCase().includes(searchVal)) ||
       (sale.cashierName && sale.cashierName.toLowerCase().includes(searchVal)) ||
+      (sale.clientName && sale.clientName.toLowerCase().includes(searchVal)) ||
       (sale.paymentMethod && sale.paymentMethod.toLowerCase().includes(searchVal));
 
     let matchesDate = true;
@@ -187,9 +189,10 @@ function openSaleDetailsModal(saleId) {
         Total: R$ ${(sale.total || 0).toFixed(2)}
       </p>
       <p style="color:var(--text-secondary);">${paymentLabels[sale.paymentMethod] || sale.paymentMethod}</p>
+      <p style="color:var(--text-muted); font-size:0.85rem;">Cliente: ${escapeHtml(sale.clientName || '—')}</p>
       ${sale.paymentMethod === 'CREDITO_LOJA' ? `
         <p style="color:var(--text-muted); font-size:0.85rem;">
-          Cliente: ${escapeHtml(sale.clientName || '—')} | ${(sale.installments || 1)}x | Primeiro vencimento: ${sale.dueDate ? new Date(sale.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
+          ${(sale.installments || 1)}x | Primeiro vencimento: ${sale.dueDate ? new Date(sale.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
         </p>
       ` : ''}
       ${sale.paymentMethod === 'DINHEIRO' ? `
