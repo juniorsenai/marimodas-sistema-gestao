@@ -42,6 +42,7 @@ function loadManagementClients() {
     }
     if (managementTab === 'clients') renderManagement();
     refreshCheckoutClients();
+    notifyMonthlyBirthdays();
   }, error => {
     console.error('Erro ao carregar clientes:', error);
     showToast('Erro ao carregar o banco de clientes.', 'danger');
@@ -52,7 +53,7 @@ async function createManagementClient(client) {
   const docRef = client.id ? db.collection('clients').doc(client.id) : db.collection('clients').doc();
   await docRef.set({
     name: String(client.name || '').trim(), phone: String(client.phone || '').trim(),
-    cpf: String(client.cpf || '').trim(), email: String(client.email || '').trim(),
+    birthDate: String(client.birthDate || '').trim(), email: String(client.email || '').trim(),
     createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: currentUser?.uid || ''
   });
   return docRef.id;
@@ -130,14 +131,20 @@ function renderManagement() {
 function renderClients() {
   const clients = getManagementClients();
   const activeSales = (Array.isArray(allSales) ? allSales : []).filter(sale => sale.status !== 'CANCELADA');
+  const birthdayClients = getMonthlyBirthdayClients();
+  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date());
   return `
+    <div class="birthday-panel table-container">
+      <div class="birthday-panel-heading"><div><h3><i class="fa-solid fa-cake-candles"></i> Aniversariantes de ${monthName}</h3><p>${birthdayClients.length ? `${birthdayClients.length} cliente(s) para lembrar e preparar promoções.` : 'Nenhum aniversariante cadastrado neste mês.'}</p></div><span>${birthdayClients.length}</span></div>
+      ${birthdayClients.length ? `<div class="birthday-list">${birthdayClients.map(client => `<div class="birthday-client"><div class="birthday-day">${String(getBirthdayParts(client.birthDate).day).padStart(2, '0')}</div><div><b>${escapeHtml(client.name)}</b><small>${formatBirthDate(client.birthDate)}${isBirthdayToday(client.birthDate) ? ' · Hoje! 🎉' : ''}</small></div>${client.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${client.id}')" title="Enviar promoção pelo WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}</div>`).join('')}</div>` : ''}
+    </div>
     <div class="management-grid">
       <form class="table-container management-form" onsubmit="saveClient(event)">
         <h3><i class="fa-solid fa-user-plus"></i> Novo cliente</h3>
         <div class="form-group"><label>Nome *</label><input class="form-control" name="name" required maxlength="100"></div>
         <div class="form-row">
           <div class="form-group"><label>Telefone</label><input class="form-control" name="phone" inputmode="tel"></div>
-          <div class="form-group"><label>CPF</label><input class="form-control" name="cpf" inputmode="numeric"></div>
+          <div class="form-group"><label>Data de nascimento</label><input class="form-control" name="birthDate" type="date"></div>
         </div>
         <div class="form-group"><label>E-mail</label><input class="form-control" name="email" type="email"></div>
         <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar cliente</button>
@@ -149,7 +156,7 @@ function renderClients() {
           const sales = activeSales.filter(sale => sale.clientId === c.id);
           const counts = sales.reduce((result, sale) => ({ ...result, [sale.paymentMethod]: (result[sale.paymentMethod] || 0) + 1 }), {});
           const favorite = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
-          return `<tr><td><b>${escapeHtml(c.name)}</b><small class="client-secondary">${escapeHtml(c.email || c.cpf || '')}</small></td><td>${c.phone ? `<a class="whatsapp-link" href="${getClientWhatsAppUrl(c.phone)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(c.phone)}</a>` : '—'}</td><td>${sales.length}</td><td>${favorite ? getPaymentLabel(favorite) : '—'}</td><td><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openClientProfile('${c.id}')" title="Ver perfil e histórico"><i class="fa-solid fa-chart-pie"></i></button>${c.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${c.id}')" title="Conversar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;
+          return `<tr><td><b>${escapeHtml(c.name)}</b><small class="client-secondary">${c.birthDate ? `🎂 ${formatBirthDate(c.birthDate)}` : escapeHtml(c.email || '')}</small></td><td>${c.phone ? `<a class="whatsapp-link" href="${getClientWhatsAppUrl(c.phone)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(c.phone)}</a>` : '—'}</td><td>${sales.length}</td><td>${favorite ? getPaymentLabel(favorite) : '—'}</td><td><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openClientProfile('${c.id}')" title="Ver perfil e histórico"><i class="fa-solid fa-chart-pie"></i></button>${c.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${c.id}')" title="Conversar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;
         }).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum cliente cadastrado.</td></tr>'}</tbody></table></div>
       </div>
     </div>`;
@@ -161,7 +168,7 @@ async function saveClient(event) {
   if (clients.length >= MG_LIMITS.clients) return showToast('Limite de 9.000 clientes atingido.', 'warning');
   const data = new FormData(event.target);
   try {
-    await createManagementClient({ name: data.get('name'), phone: data.get('phone'), cpf: data.get('cpf'), email: data.get('email') });
+    await createManagementClient({ name: data.get('name'), phone: data.get('phone'), birthDate: data.get('birthDate'), email: data.get('email') });
     event.target.reset();
     showToast('Cliente cadastrado com sucesso.', 'success');
   } catch (error) {
@@ -195,6 +202,51 @@ function getPaymentLabel(method) {
   return ({ DINHEIRO: 'Dinheiro', PIX: 'PIX', CARTAO_CREDITO: 'Crédito', CARTAO_DEBITO: 'Débito', CREDITO_LOJA: 'Fiado' })[method] || method;
 }
 
+function getBirthdayParts(value) {
+  const parts = String(value || '').split('-').map(Number);
+  return { year: parts[0] || 0, month: parts[1] || 0, day: parts[2] || 0 };
+}
+
+function formatBirthDate(value) {
+  const { year, month, day } = getBirthdayParts(value);
+  return year && month && day ? `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}` : '—';
+}
+
+function getMonthlyBirthdayClients() {
+  const currentMonth = new Date().getMonth() + 1;
+  return getManagementClients().filter(client => getBirthdayParts(client.birthDate).month === currentMonth)
+    .sort((a, b) => getBirthdayParts(a.birthDate).day - getBirthdayParts(b.birthDate).day);
+}
+
+function isBirthdayToday(value) {
+  const now = new Date(); const birthday = getBirthdayParts(value);
+  return birthday.month === now.getMonth() + 1 && birthday.day === now.getDate();
+}
+
+function notifyMonthlyBirthdays() {
+  const clients = getMonthlyBirthdayClients();
+  if (!clients.length) return;
+  const now = new Date();
+  const noticeKey = `marimodas_birthday_notice_${currentUser?.uid || 'user'}_${now.getFullYear()}_${now.getMonth() + 1}`;
+  if (sessionStorage.getItem(noticeKey)) return;
+  sessionStorage.setItem(noticeKey, '1');
+  const names = clients.slice(0, 3).map(client => client.name).join(', ');
+  showToast(`🎂 ${clients.length} aniversariante(s) neste mês: ${names}${clients.length > 3 ? ' e mais.' : '.'}`, 'info', 7000);
+}
+
+async function saveClientBirthDate(id) {
+  const input = document.getElementById('client-profile-birthdate');
+  if (!input?.value) return showToast('Informe a data de nascimento.', 'warning');
+  try {
+    await db.collection('clients').doc(id).update({ birthDate: input.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    showToast('Data de nascimento atualizada.', 'success');
+    document.getElementById('client-profile-modal')?.classList.remove('active');
+  } catch (error) {
+    console.error('Erro ao atualizar nascimento:', error);
+    showToast('Não foi possível atualizar a data.', 'danger');
+  }
+}
+
 async function openClientProfile(id) {
   const client = getManagementClients().find(item => item.id === id);
   if (!client) return;
@@ -210,7 +262,7 @@ async function openClientProfile(id) {
   const paymentSummary = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([method, count]) => `<span>${getPaymentLabel(method)}: <b>${count}</b></span>`).join('');
   let modal = document.getElementById('client-profile-modal');
   if (!modal) { modal = document.createElement('div'); modal.id = 'client-profile-modal'; modal.className = 'modal-overlay'; document.body.appendChild(modal); }
-  modal.innerHTML = `<div class="modal-card client-profile-card"><div class="modal-header"><h3><i class="fa-solid fa-user"></i> ${escapeHtml(client.name)}</h3><button class="modal-close" onclick="document.getElementById('client-profile-modal').classList.remove('active')"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="client-profile-stats"><div><span>Compras</span><strong>${sales.length}</strong></div><div><span>Total comprado</span><strong>${mgMoney(total)}</strong></div><div><span>Pagamento preferido</span><strong>${preferred ? getPaymentLabel(preferred) : '—'}</strong></div></div>${paymentSummary ? `<div class="client-payment-summary">${paymentSummary}</div>` : ''}<h4>Histórico de compras</h4><div class="client-history">${sales.length ? sales.map(sale => `<div><span><b>#${String(sale.saleId || sale.id).slice(0, 8).toUpperCase()}</b><small>${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleDateString('pt-BR') : '—'} · ${getPaymentLabel(sale.paymentMethod)}</small></span><strong>${mgMoney(sale.total)}</strong></div>`).join('') : '<p class="empty-cell">Nenhuma compra vinculada a este cliente.</p>'}</div></div><div class="modal-footer">${client.phone ? `<button class="btn btn-success" onclick="openClientWhatsApp('${client.id}')"><i class="fa-brands fa-whatsapp"></i> Conversar</button>` : ''}<button class="btn btn-secondary" onclick="document.getElementById('client-profile-modal').classList.remove('active')">Fechar</button></div></div>`;
+  modal.innerHTML = `<div class="modal-card client-profile-card"><div class="modal-header"><h3><i class="fa-solid fa-user"></i> ${escapeHtml(client.name)}</h3><button class="modal-close" onclick="document.getElementById('client-profile-modal').classList.remove('active')"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="client-birthday-editor"><div><label for="client-profile-birthdate"><i class="fa-solid fa-cake-candles"></i> Data de nascimento</label><input id="client-profile-birthdate" class="form-control" type="date" value="${escapeHtml(client.birthDate || '')}"></div><button class="btn btn-secondary" onclick="saveClientBirthDate('${client.id}')"><i class="fa-solid fa-floppy-disk"></i> Salvar data</button></div><div class="client-profile-stats"><div><span>Compras</span><strong>${sales.length}</strong></div><div><span>Total comprado</span><strong>${mgMoney(total)}</strong></div><div><span>Pagamento preferido</span><strong>${preferred ? getPaymentLabel(preferred) : '—'}</strong></div></div>${paymentSummary ? `<div class="client-payment-summary">${paymentSummary}</div>` : ''}<h4>Histórico de compras</h4><div class="client-history">${sales.length ? sales.map(sale => `<div><span><b>#${String(sale.saleId || sale.id).slice(0, 8).toUpperCase()}</b><small>${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleDateString('pt-BR') : '—'} · ${getPaymentLabel(sale.paymentMethod)}</small></span><strong>${mgMoney(sale.total)}</strong></div>`).join('') : '<p class="empty-cell">Nenhuma compra vinculada a este cliente.</p>'}</div></div><div class="modal-footer">${client.phone ? `<button class="btn btn-success" onclick="openClientWhatsApp('${client.id}')"><i class="fa-brands fa-whatsapp"></i> Conversar</button>` : ''}<button class="btn btn-secondary" onclick="document.getElementById('client-profile-modal').classList.remove('active')">Fechar</button></div></div>`;
   modal.classList.add('active');
 }
 
@@ -365,7 +417,7 @@ async function saveQuickClient(event) {
   const button = event.submitter;
   if (button) button.disabled = true;
   try {
-    const client = { name: data.get('name'), phone: data.get('phone'), cpf: data.get('cpf'), email: data.get('email') };
+    const client = { name: data.get('name'), phone: data.get('phone'), birthDate: data.get('birthDate'), email: data.get('email') };
     const id = await createManagementClient(client);
     if (!allManagementClients.some(item => item.id === id)) allManagementClients.push({ id, ...client });
     refreshCheckoutClients(id);
