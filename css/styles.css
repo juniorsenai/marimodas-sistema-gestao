@@ -1115,6 +1115,9 @@ body {
 .quick-client-form { margin:-.4rem 0 1.25rem; padding:1rem; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--bg-card); }
 .quick-client-form h4 { margin-bottom:10px; }
 .client-secondary { display:block; color:var(--text-muted); margin-top:3px; }
+.client-search-box { position:relative; margin-bottom:12px; }
+.client-search-box > i { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text-muted); pointer-events:none; }
+.client-search-box .form-control { padding-left:38px; }
 .birthday-panel { padding:1.15rem 1.25rem; margin-bottom:1.25rem; border-color:rgba(236,72,153,.28); background:linear-gradient(135deg, rgba(236,72,153,.09), rgba(139,92,246,.07)); }
 .birthday-panel-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
 .birthday-panel-heading h3 { text-transform:capitalize; }

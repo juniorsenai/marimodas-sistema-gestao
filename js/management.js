@@ -151,14 +151,16 @@ function renderClients() {
         <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar cliente</button>
       </form>
       <div class="table-container management-list">
-        <div class="list-heading"><h3>Clientes cadastrados</h3><span>${clients.length.toLocaleString('pt-BR')} / 9.000</span></div>
+        <div class="list-heading"><h3>Clientes cadastrados</h3><span id="client-search-count">${clients.length.toLocaleString('pt-BR')} / 9.000</span></div>
+        <div class="client-search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="client-search-input" class="form-control" type="search" placeholder="Pesquisar por nome, WhatsApp, e-mail ou nascimento..." oninput="filterManagementClients(this.value)"></div>
         <div class="custom-table-responsive"><table class="custom-table"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Compras</th><th>Preferência</th><th>Ações</th></tr></thead>
         <tbody>${clients.length ? clients.map(c => {
           const sales = activeSales.filter(sale => sale.clientId === c.id);
           const counts = sales.reduce((result, sale) => ({ ...result, [sale.paymentMethod]: (result[sale.paymentMethod] || 0) + 1 }), {});
           const favorite = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
-          return `<tr><td><b>${escapeHtml(c.name)}</b><small class="client-secondary">${c.birthDate ? `🎂 ${formatBirthDate(c.birthDate)}` : escapeHtml(c.email || '')}</small></td><td>${c.phone ? `<a class="whatsapp-link" href="${getClientWhatsAppUrl(c.phone)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(c.phone)}</a>` : '—'}</td><td>${sales.length}</td><td>${favorite ? getPaymentLabel(favorite) : '—'}</td><td><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openClientProfile('${c.id}')" title="Ver perfil e histórico"><i class="fa-solid fa-chart-pie"></i></button>${c.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${c.id}')" title="Conversar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;
-        }).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum cliente cadastrado.</td></tr>'}</tbody></table></div>
+          const searchText = `${c.name || ''} ${c.phone || ''} ${c.email || ''} ${c.birthDate || ''} ${formatBirthDate(c.birthDate)}`;
+          return `<tr class="management-client-row" data-client-search="${escapeHtml(searchText)}"><td><b>${escapeHtml(c.name)}</b><small class="client-secondary">${c.birthDate ? `🎂 ${formatBirthDate(c.birthDate)}` : escapeHtml(c.email || '')}</small></td><td>${c.phone ? `<a class="whatsapp-link" href="${getClientWhatsAppUrl(c.phone)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(c.phone)}</a>` : '—'}</td><td>${sales.length}</td><td>${favorite ? getPaymentLabel(favorite) : '—'}</td><td><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openClientProfile('${c.id}')" title="Ver perfil e histórico"><i class="fa-solid fa-chart-pie"></i></button>${c.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${c.id}')" title="Conversar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;
+        }).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum cliente cadastrado.</td></tr>'}<tr id="client-search-empty" style="display:none;"><td colspan="5" class="empty-cell">Nenhum cliente encontrado.</td></tr></tbody></table></div>
       </div>
     </div>`;
 }
@@ -176,6 +178,24 @@ async function saveClient(event) {
     console.error('Erro ao cadastrar cliente:', error);
     showToast('Não foi possível cadastrar o cliente.', 'danger');
   }
+}
+
+function normalizeClientSearch(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+function filterManagementClients(value) {
+  const query = normalizeClientSearch(value);
+  const rows = Array.from(document.querySelectorAll('.management-client-row'));
+  let visible = 0;
+  rows.forEach(row => {
+    const matches = !query || normalizeClientSearch(row.dataset.clientSearch).includes(query);
+    row.style.display = matches ? '' : 'none';
+    if (matches) visible++;
+  });
+  const empty = document.getElementById('client-search-empty');
+  if (empty) empty.style.display = rows.length && !visible ? '' : 'none';
+  const count = document.getElementById('client-search-count');
+  if (count) count.textContent = query ? `${visible} encontrado(s)` : `${rows.length.toLocaleString('pt-BR')} / 9.000`;
 }
 async function deleteClient(id) {
   if (!confirm('Excluir este cliente?')) return;
