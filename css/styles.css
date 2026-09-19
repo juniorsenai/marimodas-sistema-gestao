@@ -1143,6 +1143,13 @@ body {
 .finance-client-picker { display:grid; grid-template-columns:1fr auto; gap:8px; }
 .finance-quick-client { margin-top:12px; padding:12px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:rgba(15,23,42,.28); }
 .finance-quick-client h4 { margin-bottom:10px; }
+.credit-receive-action { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
+.credit-receive-action h3 { font-size:1rem; margin-bottom:3px; }
+.credit-receive-action h3 i { color:var(--success); margin-right:6px; }
+.credit-receive-action p { color:var(--text-muted); font-size:.84rem; }
+.credit-payment-balance { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:1rem; padding:12px; border:1px solid rgba(245,158,11,.3); border-radius:var(--radius-md); background:rgba(245,158,11,.08); }
+.credit-payment-balance span { color:var(--text-secondary); }
+.credit-payment-balance strong { color:var(--warning); font-size:1.2rem; }
 .client-history { margin-top:10px; max-height:310px; overflow:auto; }
 .client-history > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 4px; border-bottom:1px solid var(--border-color); }
 .client-history span { display:flex; flex-direction:column; gap:3px; }
@@ -1178,6 +1185,8 @@ body {
   .checkout-client-box, .client-profile-stats { grid-template-columns:1fr; }
   .client-birthday-editor { grid-template-columns:1fr; }
   .finance-client-picker { grid-template-columns:1fr; }
+  .credit-receive-action { align-items:stretch; flex-direction:column; }
+  .credit-receive-action .btn { width:100%; }
   .checkout-client-box .btn { width:100%; }
 }
 
