@@ -159,7 +159,7 @@ function renderClients() {
           const counts = sales.reduce((result, sale) => ({ ...result, [sale.paymentMethod]: (result[sale.paymentMethod] || 0) + 1 }), {});
           const favorite = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
           const searchText = `${c.name || ''} ${c.phone || ''} ${c.email || ''} ${c.birthDate || ''} ${formatBirthDate(c.birthDate)}`;
-          return `<tr class="management-client-row" data-client-search="${escapeHtml(searchText)}"><td><b>${escapeHtml(c.name)}</b><small class="client-secondary">${c.birthDate ? `🎂 ${formatBirthDate(c.birthDate)}` : escapeHtml(c.email || '')}</small></td><td>${c.phone ? `<a class="whatsapp-link" href="${getClientWhatsAppUrl(c.phone)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(c.phone)}</a>` : '—'}</td><td>${sales.length}</td><td>${favorite ? getPaymentLabel(favorite) : '—'}</td><td><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openClientProfile('${c.id}')" title="Ver perfil e histórico"><i class="fa-solid fa-chart-pie"></i></button>${c.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${c.id}')" title="Conversar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;
+          return `<tr class="management-client-row" data-client-search="${escapeHtml(searchText)}"><td><b>${escapeHtml(c.name)}</b><small class="client-secondary">${c.birthDate ? `🎂 ${formatBirthDate(c.birthDate)}` : escapeHtml(c.email || '')}</small></td><td>${c.phone ? `<a class="whatsapp-link" href="${getClientWhatsAppUrl(c.phone)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(c.phone)}</a>` : '—'}</td><td>${sales.length}</td><td>${favorite ? getPaymentLabel(favorite) : '—'}</td><td><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openClientProfile('${c.id}')" title="Ver perfil e histórico"><i class="fa-solid fa-chart-pie"></i></button><button class="btn btn-secondary btn-sm" onclick="openEditClientModal('${c.id}')" title="Editar dados"><i class="fa-solid fa-pen"></i></button>${c.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${c.id}')" title="Conversar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;
         }).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum cliente cadastrado.</td></tr>'}<tr id="client-search-empty" style="display:none;"><td colspan="5" class="empty-cell">Nenhum cliente encontrado.</td></tr></tbody></table></div>
       </div>
     </div>`;
@@ -196,6 +196,31 @@ function filterManagementClients(value) {
   if (empty) empty.style.display = rows.length && !visible ? '' : 'none';
   const count = document.getElementById('client-search-count');
   if (count) count.textContent = query ? `${visible} encontrado(s)` : `${rows.length.toLocaleString('pt-BR')} / 9.000`;
+}
+
+function openEditClientModal(id) {
+  const client = getManagementClients().find(item => item.id === id);
+  if (!client) return showToast('Cliente não encontrado.', 'warning');
+  let modal = document.getElementById('edit-client-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'edit-client-modal'; modal.className = 'modal-overlay'; document.body.appendChild(modal); }
+  modal.innerHTML = `<div class="modal-card" style="max-width:560px;"><div class="modal-header"><h3><i class="fa-solid fa-user-pen"></i> Editar cliente</h3><button class="modal-close" type="button" onclick="closeEditClientModal()"><i class="fa-solid fa-xmark"></i></button></div><form onsubmit="saveEditedClient(event, '${client.id}')"><div class="modal-body"><div class="form-group"><label>Nome *</label><input class="form-control" name="name" value="${escapeHtml(client.name || '')}" required maxlength="100"></div><div class="form-row"><div class="form-group"><label>WhatsApp</label><input class="form-control" name="phone" value="${escapeHtml(client.phone || '')}" inputmode="tel"></div><div class="form-group"><label>Data de nascimento</label><input class="form-control" name="birthDate" value="${escapeHtml(client.birthDate || '')}" type="date"></div></div><div class="form-group"><label>E-mail</label><input class="form-control" name="email" value="${escapeHtml(client.email || '')}" type="email"></div><p class="form-help">O histórico de compras, pagamentos e fiado continuará vinculado a esta cliente.</p></div><div class="modal-footer"><button class="btn btn-secondary" type="button" onclick="closeEditClientModal()">Cancelar</button><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Salvar alterações</button></div></form></div>`;
+  modal.classList.add('active');
+}
+function closeEditClientModal() { document.getElementById('edit-client-modal')?.classList.remove('active'); }
+async function saveEditedClient(event, id) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const name = String(data.get('name') || '').trim();
+  if (!name) return showToast('Informe o nome da cliente.', 'warning');
+  const button = event.submitter; if (button) button.disabled = true;
+  try {
+    await db.collection('clients').doc(id).update({ name, phone: String(data.get('phone') || '').trim(), birthDate: String(data.get('birthDate') || ''), email: String(data.get('email') || '').trim(), updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: currentUser.uid });
+    closeEditClientModal();
+    showToast('Dados da cliente atualizados.', 'success');
+  } catch (error) {
+    console.error('Erro ao editar cliente:', error);
+    showToast('Não foi possível atualizar os dados.', 'danger');
+  } finally { if (button) button.disabled = false; }
 }
 async function deleteClient(id) {
   if (!confirm('Excluir este cliente?')) return;
