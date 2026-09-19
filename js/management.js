@@ -40,8 +40,9 @@ function loadManagementClients() {
       }
       return;
     }
-    if (managementTab === 'clients' || managementTab === 'finance') renderManagement();
+    if (managementTab === 'clients') renderManagement();
     refreshCheckoutClients();
+    refreshFinanceClientSelect();
     notifyMonthlyBirthdays();
   }, error => {
     console.error('Erro ao carregar clientes:', error);
@@ -309,7 +310,7 @@ function renderFinance() {
       <form class="table-container management-form" onsubmit="saveFinanceEntry(event)">
         <h3>Novo lançamento</h3>
         <div class="form-row"><div class="form-group"><label>Tipo</label><select class="form-control" name="type" onchange="toggleFinanceEntryFields(this.value)"><option value="income">Entrada recebida</option><option value="expense">Saída paga</option><option value="receivable">Fiado antigo / a receber</option></select></div><div class="form-group"><label>Valor *</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div></div>
-        <div id="finance-client-field" class="form-group" style="display:none;"><label>Cliente devedor *</label><select class="form-control" name="clientId"><option value="">Selecione uma cliente</option>${getManagementClients().map(client => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join('')}</select><small class="form-help">A dívida será vinculada ao perfil da cliente, sem movimentar o estoque.</small></div>
+        <div id="finance-client-field" class="form-group" style="display:none;"><label>Cliente devedor *</label><div class="finance-client-picker"><select id="finance-client-select" class="form-control" name="clientId"><option value="">Selecione uma cliente</option>${getManagementClients().map(client => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary" onclick="toggleFinanceQuickClient()"><i class="fa-solid fa-user-plus"></i> Nova cliente</button></div><small class="form-help">A dívida será vinculada ao perfil da cliente, sem movimentar o estoque.</small><div id="finance-quick-client" class="finance-quick-client" style="display:none;"><h4>Cadastro rápido</h4><div class="form-row"><div class="form-group"><label>Nome *</label><input class="form-control" name="quickName" maxlength="100"></div><div class="form-group"><label>WhatsApp</label><input class="form-control" name="quickPhone" inputmode="tel"></div></div><div class="form-row"><div class="form-group"><label>Data de nascimento</label><input class="form-control" name="quickBirthDate" type="date"></div><div class="form-group"><label>E-mail</label><input class="form-control" name="quickEmail" type="email"></div></div><button type="button" class="btn btn-primary" onclick="saveFinanceQuickClient(this)"><i class="fa-solid fa-floppy-disk"></i> Cadastrar e selecionar</button></div></div>
         <div class="form-group"><label>Descrição *</label><input class="form-control" name="description" required></div>
         <div class="form-group"><label>Vencimento</label><input id="finance-due-date" class="form-control" name="dueDate" type="date"></div>
         <button class="btn btn-primary" type="submit">Adicionar lançamento</button>
@@ -421,6 +422,37 @@ function toggleFinanceEntryFields(type) {
   if (clientField) clientField.style.display = isReceivable ? 'block' : 'none';
   if (clientSelect) clientSelect.required = isReceivable;
   if (dueDate) dueDate.required = isReceivable;
+}
+function refreshFinanceClientSelect(selectedId = '') {
+  const select = document.getElementById('finance-client-select');
+  if (!select) return;
+  const selected = selectedId || select.value;
+  select.innerHTML = '<option value="">Selecione uma cliente</option>' + getManagementClients().map(client => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join('');
+  select.value = selected;
+}
+function toggleFinanceQuickClient() {
+  const form = document.getElementById('finance-quick-client');
+  if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+async function saveFinanceQuickClient(button) {
+  const container = document.getElementById('finance-quick-client');
+  const financeForm = button?.closest('form');
+  const name = financeForm?.elements.quickName?.value.trim() || '';
+  if (!name) return showToast('Informe o nome da cliente.', 'warning');
+  if (getManagementClients().length >= MG_LIMITS.clients) return showToast('Limite de 9.000 clientes atingido.', 'warning');
+  button.disabled = true;
+  try {
+    const client = { name, phone: financeForm.elements.quickPhone?.value || '', birthDate: financeForm.elements.quickBirthDate?.value || '', email: financeForm.elements.quickEmail?.value || '' };
+    const id = await createManagementClient(client);
+    if (!allManagementClients.some(item => item.id === id)) allManagementClients.push({ id, ...client });
+    refreshFinanceClientSelect(id);
+    ['quickName', 'quickPhone', 'quickBirthDate', 'quickEmail'].forEach(field => { if (financeForm.elements[field]) financeForm.elements[field].value = ''; });
+    if (container) container.style.display = 'none';
+    showToast('Cliente cadastrada e selecionada.', 'success');
+  } catch (error) {
+    console.error('Erro no cadastro rápido financeiro:', error);
+    showToast('Não foi possível cadastrar a cliente.', 'danger');
+  } finally { button.disabled = false; }
 }
 function refreshStoreCreditClients() { refreshCheckoutClients(); }
 

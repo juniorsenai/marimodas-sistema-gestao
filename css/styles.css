@@ -1140,6 +1140,9 @@ body {
 .client-debt-value { color:var(--warning); }
 .finance-client-name { display:block; margin-top:4px; color:var(--text-muted); }
 .finance-client-name i { margin-right:4px; }
+.finance-client-picker { display:grid; grid-template-columns:1fr auto; gap:8px; }
+.finance-quick-client { margin-top:12px; padding:12px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:rgba(15,23,42,.28); }
+.finance-quick-client h4 { margin-bottom:10px; }
 .client-history { margin-top:10px; max-height:310px; overflow:auto; }
 .client-history > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 4px; border-bottom:1px solid var(--border-color); }
 .client-history span { display:flex; flex-direction:column; gap:3px; }
@@ -1174,6 +1177,7 @@ body {
   .card-fee-preview, .fee-rate-grid { grid-template-columns:1fr 1fr; }
   .checkout-client-box, .client-profile-stats { grid-template-columns:1fr; }
   .client-birthday-editor { grid-template-columns:1fr; }
+  .finance-client-picker { grid-template-columns:1fr; }
   .checkout-client-box .btn { width:100%; }
 }
 
