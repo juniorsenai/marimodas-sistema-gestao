@@ -40,7 +40,7 @@ function loadManagementClients() {
       }
       return;
     }
-    if (managementTab === 'clients') renderManagement();
+    if (managementTab === 'clients' || managementTab === 'finance') renderManagement();
     refreshCheckoutClients();
     notifyMonthlyBirthdays();
   }, error => {
@@ -179,8 +179,11 @@ async function saveClient(event) {
 async function deleteClient(id) {
   if (!confirm('Excluir este cliente?')) return;
   try {
-    const sales = await db.collection('sales').where('clientId', '==', id).limit(1).get();
-    if (!sales.empty) return showToast('Este cliente possui histórico de compras e não pode ser excluído.', 'warning');
+    const [sales, financialEntries] = await Promise.all([
+      db.collection('sales').where('clientId', '==', id).limit(1).get(),
+      db.collection('financialEntries').where('clientId', '==', id).limit(1).get()
+    ]);
+    if (!sales.empty || !financialEntries.empty) return showToast('Este cliente possui compras ou lançamentos financeiros e não pode ser excluído.', 'warning');
     await db.collection('clients').doc(id).delete();
   }
   catch (error) { console.error(error); showToast('Não foi possível excluir o cliente.', 'danger'); }
@@ -257,12 +260,13 @@ async function openClientProfile(id) {
     sales.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
   } catch (error) { console.error('Erro ao buscar histórico completo do cliente:', error); }
   const total = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+  const pendingDebt = allFinancialEntries.filter(entry => entry.clientId === id && entry.status === 'pending').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
   const counts = sales.reduce((result, sale) => ({ ...result, [sale.paymentMethod]: (result[sale.paymentMethod] || 0) + 1 }), {});
   const preferred = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
   const paymentSummary = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([method, count]) => `<span>${getPaymentLabel(method)}: <b>${count}</b></span>`).join('');
   let modal = document.getElementById('client-profile-modal');
   if (!modal) { modal = document.createElement('div'); modal.id = 'client-profile-modal'; modal.className = 'modal-overlay'; document.body.appendChild(modal); }
-  modal.innerHTML = `<div class="modal-card client-profile-card"><div class="modal-header"><h3><i class="fa-solid fa-user"></i> ${escapeHtml(client.name)}</h3><button class="modal-close" onclick="document.getElementById('client-profile-modal').classList.remove('active')"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="client-birthday-editor"><div><label for="client-profile-birthdate"><i class="fa-solid fa-cake-candles"></i> Data de nascimento</label><input id="client-profile-birthdate" class="form-control" type="date" value="${escapeHtml(client.birthDate || '')}"></div><button class="btn btn-secondary" onclick="saveClientBirthDate('${client.id}')"><i class="fa-solid fa-floppy-disk"></i> Salvar data</button></div><div class="client-profile-stats"><div><span>Compras</span><strong>${sales.length}</strong></div><div><span>Total comprado</span><strong>${mgMoney(total)}</strong></div><div><span>Pagamento preferido</span><strong>${preferred ? getPaymentLabel(preferred) : '—'}</strong></div></div>${paymentSummary ? `<div class="client-payment-summary">${paymentSummary}</div>` : ''}<h4>Histórico de compras</h4><div class="client-history">${sales.length ? sales.map(sale => `<div><span><b>#${String(sale.saleId || sale.id).slice(0, 8).toUpperCase()}</b><small>${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleDateString('pt-BR') : '—'} · ${getPaymentLabel(sale.paymentMethod)}</small></span><strong>${mgMoney(sale.total)}</strong></div>`).join('') : '<p class="empty-cell">Nenhuma compra vinculada a este cliente.</p>'}</div></div><div class="modal-footer">${client.phone ? `<button class="btn btn-success" onclick="openClientWhatsApp('${client.id}')"><i class="fa-brands fa-whatsapp"></i> Conversar</button>` : ''}<button class="btn btn-secondary" onclick="document.getElementById('client-profile-modal').classList.remove('active')">Fechar</button></div></div>`;
+  modal.innerHTML = `<div class="modal-card client-profile-card"><div class="modal-header"><h3><i class="fa-solid fa-user"></i> ${escapeHtml(client.name)}</h3><button class="modal-close" onclick="document.getElementById('client-profile-modal').classList.remove('active')"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="client-birthday-editor"><div><label for="client-profile-birthdate"><i class="fa-solid fa-cake-candles"></i> Data de nascimento</label><input id="client-profile-birthdate" class="form-control" type="date" value="${escapeHtml(client.birthDate || '')}"></div><button class="btn btn-secondary" onclick="saveClientBirthDate('${client.id}')"><i class="fa-solid fa-floppy-disk"></i> Salvar data</button></div><div class="client-profile-stats"><div><span>Compras</span><strong>${sales.length}</strong></div><div><span>Total comprado</span><strong>${mgMoney(total)}</strong></div><div><span>Pagamento preferido</span><strong>${preferred ? getPaymentLabel(preferred) : '—'}</strong></div><div><span>Fiado pendente</span><strong class="client-debt-value">${mgMoney(pendingDebt)}</strong></div></div>${paymentSummary ? `<div class="client-payment-summary">${paymentSummary}</div>` : ''}<h4>Histórico de compras</h4><div class="client-history">${sales.length ? sales.map(sale => `<div><span><b>#${String(sale.saleId || sale.id).slice(0, 8).toUpperCase()}</b><small>${sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleDateString('pt-BR') : '—'} · ${getPaymentLabel(sale.paymentMethod)}</small></span><strong>${mgMoney(sale.total)}</strong></div>`).join('') : '<p class="empty-cell">Nenhuma compra vinculada a este cliente.</p>'}</div></div><div class="modal-footer">${client.phone ? `<button class="btn btn-success" onclick="openClientWhatsApp('${client.id}')"><i class="fa-brands fa-whatsapp"></i> Conversar</button>` : ''}<button class="btn btn-secondary" onclick="document.getElementById('client-profile-modal').classList.remove('active')">Fechar</button></div></div>`;
   modal.classList.add('active');
 }
 
@@ -304,14 +308,15 @@ function renderFinance() {
     <div class="management-grid">
       <form class="table-container management-form" onsubmit="saveFinanceEntry(event)">
         <h3>Novo lançamento</h3>
-        <div class="form-row"><div class="form-group"><label>Tipo</label><select class="form-control" name="type"><option value="income">Entrada</option><option value="expense">Saída</option></select></div><div class="form-group"><label>Valor *</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div></div>
+        <div class="form-row"><div class="form-group"><label>Tipo</label><select class="form-control" name="type" onchange="toggleFinanceEntryFields(this.value)"><option value="income">Entrada recebida</option><option value="expense">Saída paga</option><option value="receivable">Fiado antigo / a receber</option></select></div><div class="form-group"><label>Valor *</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div></div>
+        <div id="finance-client-field" class="form-group" style="display:none;"><label>Cliente devedor *</label><select class="form-control" name="clientId"><option value="">Selecione uma cliente</option>${getManagementClients().map(client => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join('')}</select><small class="form-help">A dívida será vinculada ao perfil da cliente, sem movimentar o estoque.</small></div>
         <div class="form-group"><label>Descrição *</label><input class="form-control" name="description" required></div>
-        <div class="form-group"><label>Vencimento</label><input class="form-control" name="dueDate" type="date"></div>
+        <div class="form-group"><label>Vencimento</label><input id="finance-due-date" class="form-control" name="dueDate" type="date"></div>
         <button class="btn btn-primary" type="submit">Adicionar lançamento</button>
       </form>
       <div class="table-container management-list"><div class="list-heading"><h3>Fluxo financeiro</h3></div>
         <div class="custom-table-responsive"><table class="custom-table"><thead><tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th></th></tr></thead><tbody>
-        ${entries.length ? entries.map(e => `<tr><td>${escapeHtml(e.description)}</td><td class="${e.type === 'expense' ? 'amount-out' : 'amount-in'}">${mgMoney(e.amount)}</td><td>${e.dueDate ? new Date(e.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td><td><span class="badge ${e.status === 'pending' ? 'badge-warning' : 'badge-success'}">${e.status === 'pending' ? 'Pendente' : 'Pago'}</span></td><td>${e.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="settleFinance('${e.id}')">Receber</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum lançamento.</td></tr>'}
+        ${entries.length ? entries.map(e => `<tr><td>${escapeHtml(e.description)}${e.clientName ? `<small class="finance-client-name"><i class="fa-solid fa-user"></i> ${escapeHtml(e.clientName)}</small>` : ''}</td><td class="${e.type === 'expense' ? 'amount-out' : 'amount-in'}">${mgMoney(e.amount)}</td><td>${e.dueDate ? new Date(e.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td><td><span class="badge ${e.status === 'pending' ? 'badge-warning' : 'badge-success'}">${e.status === 'pending' ? 'Pendente' : 'Pago'}</span></td><td>${e.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="settleFinance('${e.id}')">Receber</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum lançamento.</td></tr>'}
         </tbody></table></div></div>
     </div>`;
 }
@@ -322,9 +327,14 @@ function toggleInventoryCapital() {
 }
 async function saveFinanceEntry(event) {
   event.preventDefault(); const data = new FormData(event.target);
+  const selectedType = data.get('type');
+  const isReceivable = selectedType === 'receivable';
+  const client = isReceivable ? getManagementClients().find(item => item.id === data.get('clientId')) : null;
+  if (isReceivable && !client) return showToast('Selecione a cliente responsável pelo fiado.', 'warning');
+  if (isReceivable && !data.get('dueDate')) return showToast('Informe o vencimento da dívida.', 'warning');
   try {
-    await db.collection('financialEntries').add({ type: data.get('type'), amount: Number(data.get('amount')), description: data.get('description').trim(), dueDate: data.get('dueDate'), status: 'paid', automatic: false, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: currentUser.uid });
-    event.target.reset(); showToast('Lançamento registrado.', 'success');
+    await db.collection('financialEntries').add({ type: isReceivable ? 'income' : selectedType, amount: Number(data.get('amount')), description: data.get('description').trim(), dueDate: data.get('dueDate'), status: isReceivable ? 'pending' : 'paid', clientId: client?.id || '', clientName: client?.name || '', paymentMethod: isReceivable ? 'CREDITO_LOJA' : '', source: isReceivable ? 'legacy_credit' : 'manual', automatic: false, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: currentUser.uid });
+    event.target.reset(); toggleFinanceEntryFields('income'); showToast(isReceivable ? 'Dívida cadastrada em contas a receber.' : 'Lançamento registrado.', 'success');
   } catch (error) {
     console.error('Erro ao salvar lançamento:', error); showToast('Erro ao salvar lançamento financeiro.', 'danger');
   }
@@ -402,6 +412,15 @@ function refreshCheckoutClients(selectedId = '') {
     select.innerHTML = '<option value="">Selecione um cliente cadastrado</option>' + getManagementClients().map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     select.value = selected;
   });
+}
+function toggleFinanceEntryFields(type) {
+  const isReceivable = type === 'receivable';
+  const clientField = document.getElementById('finance-client-field');
+  const clientSelect = clientField?.querySelector('select');
+  const dueDate = document.getElementById('finance-due-date');
+  if (clientField) clientField.style.display = isReceivable ? 'block' : 'none';
+  if (clientSelect) clientSelect.required = isReceivable;
+  if (dueDate) dueDate.required = isReceivable;
 }
 function refreshStoreCreditClients() { refreshCheckoutClients(); }
 

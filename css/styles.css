@@ -1132,11 +1132,14 @@ body {
 .whatsapp-link { display:inline-flex; align-items:center; gap:6px; color:var(--success); font-weight:600; text-decoration:none; }
 .whatsapp-link:hover { text-decoration:underline; }
 .client-profile-card { max-width:650px; }
-.client-profile-stats { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:1.25rem; }
+.client-profile-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:1.25rem; }
 .client-profile-stats > div { display:flex; flex-direction:column; gap:4px; padding:12px; border:1px solid var(--border-color); border-radius:var(--radius-md); }
 .client-profile-stats span, .client-history small { color:var(--text-secondary); }
 .client-payment-summary { display:flex; flex-wrap:wrap; gap:8px; margin:-5px 0 1.25rem; }
 .client-payment-summary span { padding:6px 9px; background:rgba(139,92,246,.12); border-radius:999px; color:var(--text-secondary); font-size:.82rem; }
+.client-debt-value { color:var(--warning); }
+.finance-client-name { display:block; margin-top:4px; color:var(--text-muted); }
+.finance-client-name i { margin-right:4px; }
 .client-history { margin-top:10px; max-height:310px; overflow:auto; }
 .client-history > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 4px; border-bottom:1px solid var(--border-color); }
 .client-history span { display:flex; flex-direction:column; gap:3px; }
