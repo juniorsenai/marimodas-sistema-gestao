@@ -1130,6 +1130,9 @@ body {
 .nfe-draft-fields { display:grid; grid-template-columns:2fr 1.35fr .7fr 1fr 1fr 1fr .8fr 1fr; gap:8px; align-items:start; }
 .nfe-draft-fields .form-group { margin:0; }
 .nfe-field-error { display:block; margin-top:4px; color:var(--danger); font-size:.72rem; }
+.nfe-generated-help { display:block; margin-top:4px; color:var(--warning); font-size:.72rem; }
+.internal-code-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 7px; border-radius:999px; background:rgba(245,158,11,.14); color:var(--warning); font-weight:700; }
+.inventory-internal-code { display:block; width:max-content; margin-top:4px; padding:2px 6px; border-radius:999px; background:rgba(245,158,11,.12); color:var(--warning); font-family:inherit; font-weight:600; }
 .nfe-item-count { margin-right:auto; color:var(--text-secondary); font-size:.85rem; }
 .birthday-panel { padding:1.15rem 1.25rem; margin-bottom:1.25rem; border-color:rgba(236,72,153,.28); background:linear-gradient(135deg, rgba(236,72,153,.09), rgba(139,92,246,.07)); }
 .birthday-panel-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }

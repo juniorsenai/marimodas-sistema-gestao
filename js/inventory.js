@@ -34,11 +34,12 @@ async function handleNfeXmlFile(file) {
     nfeImportDraft = detNodes.map((det, index) => {
       const prod = Array.from(det.children).find(element => element.localName === 'prod') || det;
       const rawBarcode = textFrom(prod, 'cEANTrib') || textFrom(prod, 'cEAN');
-      const barcode = /^\d{8,14}$/.test(rawBarcode) ? rawBarcode : generateRandomBarcode();
+      const hasValidBarcode = /^\d{8,14}$/.test(rawBarcode);
+      const barcode = hasValidBarcode ? rawBarcode : generateRandomBarcode();
       const cost = Number(textFrom(prod, 'vUnCom') || 0);
       return {
         key: `${Date.now()}_${index}`, name: textFrom(prod, 'xProd') || `Produto ${index + 1}`,
-        barcode, stockQty: Math.max(1, Math.round(Number(textFrom(prod, 'qCom') || 1))),
+        barcode, barcodeGenerated: !hasValidBarcode, stockQty: Math.max(1, Math.round(Number(textFrom(prod, 'qCom') || 1))),
         costPrice: Number(cost.toFixed(2)), sellPrice: Number(cost.toFixed(2)),
         category: 'Feminino', size: 'Único', color: 'Padrão',
         supplierCode: textFrom(prod, 'cProd'), ncm: textFrom(prod, 'NCM')
@@ -65,7 +66,7 @@ function renderNfeDraftItem(item, index) {
   const duplicate = existingDuplicate || draftDuplicate;
   const categories = ['Feminino', 'Masculino', 'Infantil', 'Acessórios', 'Calçados'];
   const sizes = ['PP', 'P', 'M', 'G', 'GG', 'XGG', '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', 'Único'];
-  return `<div class="nfe-draft-item ${duplicate ? 'has-error' : ''}"><div class="nfe-draft-heading"><span>Item ${index + 1}${item.supplierCode ? ` · Cód. fornecedor: ${escapeHtml(item.supplierCode)}` : ''}</span><button class="btn btn-danger btn-sm" onclick="removeNfeDraftItem(${index})" title="Remover da importação"><i class="fa-solid fa-trash"></i></button></div><div class="nfe-draft-fields"><div class="form-group wide"><label>Nome *</label><input class="form-control" value="${escapeHtml(item.name)}" oninput="updateNfeDraft(${index}, 'name', this.value)"></div><div class="form-group"><label>Código de barras *</label><input class="form-control" value="${escapeHtml(item.barcode)}" oninput="updateNfeDraft(${index}, 'barcode', this.value)">${duplicate ? '<small class="nfe-field-error">Código duplicado. Informe outro código.</small>' : ''}</div><div class="form-group"><label>Quantidade *</label><input class="form-control" type="number" min="1" step="1" value="${item.stockQty}" oninput="updateNfeDraft(${index}, 'stockQty', this.value)"></div><div class="form-group"><label>Custo unitário *</label><input class="form-control" type="number" min="0" step="0.01" value="${item.costPrice}" oninput="updateNfeDraft(${index}, 'costPrice', this.value)"></div><div class="form-group"><label>Preço de venda *</label><input class="form-control" type="number" min="0.01" step="0.01" value="${item.sellPrice}" oninput="updateNfeDraft(${index}, 'sellPrice', this.value)"></div><div class="form-group"><label>Categoria</label><select class="form-control" onchange="updateNfeDraft(${index}, 'category', this.value)">${categories.map(value => `<option ${item.category === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div><div class="form-group"><label>Tamanho</label><select class="form-control" onchange="updateNfeDraft(${index}, 'size', this.value)">${sizes.map(value => `<option ${item.size === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div><div class="form-group"><label>Cor</label><input class="form-control" value="${escapeHtml(item.color)}" oninput="updateNfeDraft(${index}, 'color', this.value)"></div></div></div>`;
+  return `<div class="nfe-draft-item ${duplicate ? 'has-error' : ''}"><div class="nfe-draft-heading"><span>Item ${index + 1}${item.supplierCode ? ` · Cód. fornecedor: ${escapeHtml(item.supplierCode)}` : ''}${item.barcodeGenerated ? ' · <b class="internal-code-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> Sem GTIN — código interno gerado</b>' : ''}</span><button class="btn btn-danger btn-sm" onclick="removeNfeDraftItem(${index})" title="Remover da importação"><i class="fa-solid fa-trash"></i></button></div><div class="nfe-draft-fields"><div class="form-group wide"><label>Nome *</label><input class="form-control" value="${escapeHtml(item.name)}" oninput="updateNfeDraft(${index}, 'name', this.value)"></div><div class="form-group"><label>${item.barcodeGenerated ? 'Código interno gerado pelo sistema *' : 'Código de barras da NF-e *'}</label><input class="form-control" value="${escapeHtml(item.barcode)}" oninput="updateNfeDraft(${index}, 'barcode', this.value)">${item.barcodeGenerated ? '<small class="nfe-generated-help">Este produto não possuía GTIN na nota.</small>' : ''}${duplicate ? '<small class="nfe-field-error">Código duplicado. Informe outro código.</small>' : ''}</div><div class="form-group"><label>Quantidade *</label><input class="form-control" type="number" min="1" step="1" value="${item.stockQty}" oninput="updateNfeDraft(${index}, 'stockQty', this.value)"></div><div class="form-group"><label>Custo unitário *</label><input class="form-control" type="number" min="0" step="0.01" value="${item.costPrice}" oninput="updateNfeDraft(${index}, 'costPrice', this.value)"></div><div class="form-group"><label>Preço de venda *</label><input class="form-control" type="number" min="0.01" step="0.01" value="${item.sellPrice}" oninput="updateNfeDraft(${index}, 'sellPrice', this.value)"></div><div class="form-group"><label>Categoria</label><select class="form-control" onchange="updateNfeDraft(${index}, 'category', this.value)">${categories.map(value => `<option ${item.category === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div><div class="form-group"><label>Tamanho</label><select class="form-control" onchange="updateNfeDraft(${index}, 'size', this.value)">${sizes.map(value => `<option ${item.size === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div><div class="form-group"><label>Cor</label><input class="form-control" value="${escapeHtml(item.color)}" oninput="updateNfeDraft(${index}, 'color', this.value)"></div></div></div>`;
 }
 
 function updateNfeDraft(index, field, value) { if (nfeImportDraft[index]) nfeImportDraft[index][field] = value; }
@@ -128,7 +129,8 @@ function renderProductsUI() {
   const filteredProducts = allProducts.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchVal) ||
                           (p.barcode && p.barcode.toLowerCase().includes(searchVal)) ||
-                          (p.color && p.color.toLowerCase().includes(searchVal));
+                          (p.color && p.color.toLowerCase().includes(searchVal)) ||
+                          (p.barcodeGenerated && 'codigo interno gerado sistema sem gtin'.includes(searchVal));
     const matchesCategory = !categoryVal || p.category === categoryVal;
     const matchesSize = !sizeVal || p.size === sizeVal;
 
@@ -162,6 +164,7 @@ function renderProductsUI() {
           ${p.imageUrl ? `<img src="${escapeHtml(p.imageUrl)}" alt="Foto de ${escapeHtml(p.name)}" class="inventory-product-thumb">` : '<div class="inventory-product-placeholder"><i class="fa-solid fa-shirt"></i></div>'}
           <div><div style="font-weight: 600;">${escapeHtml(p.name)}</div>
         <small style="color: var(--text-muted); font-family: monospace;">Código: ${p.barcode || '-'}</small>
+        ${p.barcodeGenerated ? '<small class="inventory-internal-code"><i class="fa-solid fa-wand-magic-sparkles"></i> Código interno gerado pelo sistema</small>' : ''}
           </div>
         </div>
       </td>

@@ -47,6 +47,7 @@ async function addProductsBatch(products) {
       stockQty: parseInt(product.stockQty) || 0,
       minStock: parseInt(product.minStock) || 2,
       barcode: product.barcode || generateRandomBarcode(),
+      barcodeGenerated: product.barcodeGenerated === true,
       imageUrl: '',
       description: product.description || '',
       importedFromNfe: true,
