@@ -1118,6 +1118,19 @@ body {
 .client-search-box { position:relative; margin-bottom:12px; }
 .client-search-box > i { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text-muted); pointer-events:none; }
 .client-search-box .form-control { padding-left:38px; }
+.nfe-import-card { width:min(1180px, 96vw); max-width:1180px; max-height:94vh; }
+.nfe-import-card .modal-body { overflow:auto; }
+.nfe-import-card .modal-header small { display:block; color:var(--text-muted); margin-top:3px; }
+.nfe-import-notice { display:flex; gap:9px; padding:11px; margin-bottom:12px; border:1px solid rgba(59,130,246,.28); background:rgba(59,130,246,.08); border-radius:var(--radius-md); color:var(--text-secondary); }
+.nfe-import-notice i { color:var(--info); margin-top:2px; }
+.nfe-draft-list { display:grid; gap:12px; }
+.nfe-draft-item { padding:12px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:rgba(15,23,42,.25); }
+.nfe-draft-item.has-error { border-color:var(--danger); }
+.nfe-draft-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; color:var(--text-secondary); font-size:.84rem; }
+.nfe-draft-fields { display:grid; grid-template-columns:2fr 1.35fr .7fr 1fr 1fr 1fr .8fr 1fr; gap:8px; align-items:start; }
+.nfe-draft-fields .form-group { margin:0; }
+.nfe-field-error { display:block; margin-top:4px; color:var(--danger); font-size:.72rem; }
+.nfe-item-count { margin-right:auto; color:var(--text-secondary); font-size:.85rem; }
 .birthday-panel { padding:1.15rem 1.25rem; margin-bottom:1.25rem; border-color:rgba(236,72,153,.28); background:linear-gradient(135deg, rgba(236,72,153,.09), rgba(139,92,246,.07)); }
 .birthday-panel-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
 .birthday-panel-heading h3 { text-transform:capitalize; }
@@ -1190,6 +1203,10 @@ body {
   .finance-client-picker { grid-template-columns:1fr; }
   .credit-receive-action { align-items:stretch; flex-direction:column; }
   .credit-receive-action .btn { width:100%; }
+  .nfe-draft-fields { grid-template-columns:1fr 1fr; }
+  .nfe-draft-fields .wide { grid-column:1/-1; }
+  .nfe-import-card .modal-footer { flex-wrap:wrap; }
+  .nfe-item-count { width:100%; }
   .checkout-client-box .btn { width:100%; }
 }
 

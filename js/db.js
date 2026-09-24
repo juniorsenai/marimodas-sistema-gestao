@@ -30,6 +30,35 @@ async function addProduct(product) {
   }
 }
 
+async function addProductsBatch(products) {
+  if (!Array.isArray(products) || !products.length) return;
+  if (products.length > 450) throw new Error('A importação aceita até 450 itens por vez.');
+  const batch = db.batch();
+  const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+  products.forEach(product => {
+    const ref = db.collection('products').doc();
+    batch.set(ref, {
+      name: product.name,
+      category: product.category || 'Geral',
+      size: product.size || 'Único',
+      color: product.color || 'Padrão',
+      costPrice: parseFloat(product.costPrice) || 0,
+      sellPrice: parseFloat(product.sellPrice) || 0,
+      stockQty: parseInt(product.stockQty) || 0,
+      minStock: parseInt(product.minStock) || 2,
+      barcode: product.barcode || generateRandomBarcode(),
+      imageUrl: '',
+      description: product.description || '',
+      importedFromNfe: true,
+      nfeNumber: product.nfeNumber || '',
+      supplierName: product.supplierName || '',
+      createdAt: timestamp,
+      updatedAt: timestamp
+    });
+  });
+  await batch.commit();
+}
+
 // Atualizar produto existente
 async function updateProduct(id, product) {
   try {

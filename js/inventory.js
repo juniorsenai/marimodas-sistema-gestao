@@ -6,6 +6,93 @@
 let allProducts = [];
 let currentEditingProductId = null;
 let currentProductImage = '';
+let nfeImportDraft = [];
+let nfeImportInfo = {};
+
+function openNfeXmlFilePicker() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.xml,text/xml,application/xml';
+  input.addEventListener('change', event => handleNfeXmlFile(event.target.files?.[0]));
+  input.click();
+}
+
+async function handleNfeXmlFile(file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) return showToast('O arquivo XML deve ter no máximo 10 MB.', 'warning');
+  try {
+    const xmlText = await file.text();
+    const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
+    if (xml.querySelector('parsererror')) throw new Error('XML inválido');
+    const elements = Array.from(xml.getElementsByTagName('*'));
+    const byLocalName = name => elements.find(element => element.localName === name);
+    const textFrom = (root, name) => Array.from(root.getElementsByTagName('*')).find(element => element.localName === name)?.textContent?.trim() || '';
+    const detNodes = elements.filter(element => element.localName === 'det');
+    if (!detNodes.length) throw new Error('Nenhum produto encontrado na NF-e');
+    const ide = byLocalName('ide');
+    const emit = byLocalName('emit');
+    nfeImportInfo = { number: ide ? textFrom(ide, 'nNF') : '', supplier: emit ? textFrom(emit, 'xNome') : '', fileName: file.name };
+    nfeImportDraft = detNodes.map((det, index) => {
+      const prod = Array.from(det.children).find(element => element.localName === 'prod') || det;
+      const rawBarcode = textFrom(prod, 'cEANTrib') || textFrom(prod, 'cEAN');
+      const barcode = /^\d{8,14}$/.test(rawBarcode) ? rawBarcode : generateRandomBarcode();
+      const cost = Number(textFrom(prod, 'vUnCom') || 0);
+      return {
+        key: `${Date.now()}_${index}`, name: textFrom(prod, 'xProd') || `Produto ${index + 1}`,
+        barcode, stockQty: Math.max(1, Math.round(Number(textFrom(prod, 'qCom') || 1))),
+        costPrice: Number(cost.toFixed(2)), sellPrice: Number(cost.toFixed(2)),
+        category: 'Feminino', size: 'Único', color: 'Padrão',
+        supplierCode: textFrom(prod, 'cProd'), ncm: textFrom(prod, 'NCM')
+      };
+    });
+    if (nfeImportDraft.length > 450) throw new Error('A nota possui mais de 450 itens. Divida a importação em partes.');
+    renderNfeImportModal();
+  } catch (error) {
+    console.error('Erro ao importar XML da NF-e:', error);
+    showToast(error.message || 'Não foi possível ler o XML da NF-e.', 'danger');
+  }
+}
+
+function renderNfeImportModal() {
+  let modal = document.getElementById('nfe-import-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'nfe-import-modal'; modal.className = 'modal-overlay'; document.body.appendChild(modal); }
+  modal.innerHTML = `<div class="modal-card nfe-import-card"><div class="modal-header"><div><h3><i class="fa-solid fa-file-invoice"></i> Revisar produtos da NF-e</h3><small>${escapeHtml(nfeImportInfo.supplier || 'Fornecedor não identificado')} ${nfeImportInfo.number ? `· Nota ${escapeHtml(nfeImportInfo.number)}` : ''}</small></div><button class="modal-close" onclick="closeNfeImportModal()"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="nfe-import-notice"><i class="fa-solid fa-circle-info"></i><span>Nenhum item foi cadastrado ainda. Revise os dados, principalmente custo e preço de venda, antes de confirmar.</span></div><div class="nfe-draft-list">${nfeImportDraft.map((item, index) => renderNfeDraftItem(item, index)).join('')}</div>${!nfeImportDraft.length ? '<div class="empty-cell">Todos os itens foram removidos da importação.</div>' : ''}</div><div class="modal-footer"><span class="nfe-item-count">${nfeImportDraft.length} produto(s) aguardando confirmação</span><button class="btn btn-secondary" onclick="closeNfeImportModal()">Cancelar</button><button class="btn btn-primary" onclick="confirmNfeImport()" ${!nfeImportDraft.length ? 'disabled' : ''}><i class="fa-solid fa-check"></i> Confirmar cadastro</button></div></div>`;
+  modal.classList.add('active');
+}
+
+function renderNfeDraftItem(item, index) {
+  const existingDuplicate = allProducts.some(product => String(product.barcode) === String(item.barcode));
+  const draftDuplicate = nfeImportDraft.some((other, otherIndex) => otherIndex !== index && String(other.barcode) === String(item.barcode));
+  const duplicate = existingDuplicate || draftDuplicate;
+  const categories = ['Feminino', 'Masculino', 'Infantil', 'Acessórios', 'Calçados'];
+  const sizes = ['PP', 'P', 'M', 'G', 'GG', 'XGG', '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', 'Único'];
+  return `<div class="nfe-draft-item ${duplicate ? 'has-error' : ''}"><div class="nfe-draft-heading"><span>Item ${index + 1}${item.supplierCode ? ` · Cód. fornecedor: ${escapeHtml(item.supplierCode)}` : ''}</span><button class="btn btn-danger btn-sm" onclick="removeNfeDraftItem(${index})" title="Remover da importação"><i class="fa-solid fa-trash"></i></button></div><div class="nfe-draft-fields"><div class="form-group wide"><label>Nome *</label><input class="form-control" value="${escapeHtml(item.name)}" oninput="updateNfeDraft(${index}, 'name', this.value)"></div><div class="form-group"><label>Código de barras *</label><input class="form-control" value="${escapeHtml(item.barcode)}" oninput="updateNfeDraft(${index}, 'barcode', this.value)">${duplicate ? '<small class="nfe-field-error">Código duplicado. Informe outro código.</small>' : ''}</div><div class="form-group"><label>Quantidade *</label><input class="form-control" type="number" min="1" step="1" value="${item.stockQty}" oninput="updateNfeDraft(${index}, 'stockQty', this.value)"></div><div class="form-group"><label>Custo unitário *</label><input class="form-control" type="number" min="0" step="0.01" value="${item.costPrice}" oninput="updateNfeDraft(${index}, 'costPrice', this.value)"></div><div class="form-group"><label>Preço de venda *</label><input class="form-control" type="number" min="0.01" step="0.01" value="${item.sellPrice}" oninput="updateNfeDraft(${index}, 'sellPrice', this.value)"></div><div class="form-group"><label>Categoria</label><select class="form-control" onchange="updateNfeDraft(${index}, 'category', this.value)">${categories.map(value => `<option ${item.category === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div><div class="form-group"><label>Tamanho</label><select class="form-control" onchange="updateNfeDraft(${index}, 'size', this.value)">${sizes.map(value => `<option ${item.size === value ? 'selected' : ''}>${value}</option>`).join('')}</select></div><div class="form-group"><label>Cor</label><input class="form-control" value="${escapeHtml(item.color)}" oninput="updateNfeDraft(${index}, 'color', this.value)"></div></div></div>`;
+}
+
+function updateNfeDraft(index, field, value) { if (nfeImportDraft[index]) nfeImportDraft[index][field] = value; }
+function removeNfeDraftItem(index) { nfeImportDraft.splice(index, 1); renderNfeImportModal(); }
+function closeNfeImportModal() { document.getElementById('nfe-import-modal')?.classList.remove('active'); }
+
+async function confirmNfeImport() {
+  if (!nfeImportDraft.length) return;
+  if (allProducts.length + nfeImportDraft.length > 9000) return showToast('A importação ultrapassa o limite de 9.000 produtos.', 'warning');
+  const barcodes = new Set();
+  for (const item of nfeImportDraft) {
+    item.name = String(item.name || '').trim(); item.barcode = String(item.barcode || '').trim();
+    if (!item.name || !item.barcode || !(Number(item.stockQty) > 0) || !(Number(item.sellPrice) > 0)) return showToast('Preencha nome, código, quantidade e preço de venda de todos os produtos.', 'warning');
+    if (barcodes.has(item.barcode) || allProducts.some(product => String(product.barcode) === item.barcode)) return showToast(`O código ${item.barcode} está duplicado. Corrija antes de confirmar.`, 'warning');
+    barcodes.add(item.barcode);
+  }
+  const button = document.querySelector('#nfe-import-modal .btn-primary'); if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cadastrando...'; }
+  try {
+    const products = nfeImportDraft.map(item => ({ ...item, nfeNumber: nfeImportInfo.number, supplierName: nfeImportInfo.supplier, description: `Importado da NF-e ${nfeImportInfo.number || ''}${item.ncm ? ` · NCM ${item.ncm}` : ''}`.trim(), minStock: 2 }));
+    await addProductsBatch(products);
+    const count = products.length; nfeImportDraft = []; closeNfeImportModal();
+    showToast(`${count} produto(s) cadastrado(s) a partir da NF-e.`, 'success', 6000);
+  } catch (error) {
+    console.error('Erro ao cadastrar produtos da NF-e:', error); showToast(error.message || 'Não foi possível concluir a importação.', 'danger');
+    if (button) { button.disabled = false; button.innerHTML = '<i class="fa-solid fa-check"></i> Confirmar cadastro'; }
+  }
+}
 
 // Escutar lista de produtos em tempo real no Firestore
 function loadProducts() {
