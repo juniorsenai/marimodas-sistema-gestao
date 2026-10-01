@@ -577,12 +577,45 @@ function closeReceiptModal() {
 }
 
 function printReceipt() {
-  const originalTitle = document.title;
-  document.title = 'MARIMODAS | Comprovante de Venda';
-  window.addEventListener('afterprint', () => {
-    document.title = originalTitle;
-  }, { once: true });
-  window.print();
+  const receipt = document.getElementById('printable-receipt');
+  if (!receipt) return showToast('Não foi possível preparar o comprovante.', 'danger');
+
+  const printFrame = document.createElement('iframe');
+  printFrame.setAttribute('title', 'Impressão do comprovante');
+  printFrame.style.position = 'fixed';
+  printFrame.style.right = '0';
+  printFrame.style.bottom = '0';
+  printFrame.style.width = '1px';
+  printFrame.style.height = '1px';
+  printFrame.style.border = '0';
+  printFrame.style.opacity = '0';
+  document.body.appendChild(printFrame);
+
+  const printDocument = printFrame.contentDocument || printFrame.contentWindow.document;
+  printDocument.open();
+  printDocument.write(`<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><title>MARIMODAS - Comprovante de Venda</title><style>
+    @page { size: A4 portrait; margin: 12mm; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    body { font-family: Arial, sans-serif; }
+    .receipt-print { width: 80mm; max-width: 100%; margin: 0 auto; padding: 10px; font-family: monospace; font-size: 11px; line-height: 1.35; background: #fff; color: #000; break-inside: avoid; page-break-inside: avoid; }
+    @media print { .receipt-print { margin: 0 auto; } }
+  </style></head><body><main class="receipt-print">${receipt.innerHTML}</main></body></html>`);
+  printDocument.close();
+
+  const cleanup = () => { if (printFrame.isConnected) printFrame.remove(); };
+  printFrame.contentWindow.addEventListener('afterprint', cleanup, { once: true });
+  setTimeout(() => {
+    try {
+      printFrame.contentWindow.focus();
+      printFrame.contentWindow.print();
+    } catch (error) {
+      console.error('Erro ao imprimir comprovante:', error);
+      cleanup();
+      showToast('Não foi possível abrir a impressão do comprovante.', 'danger');
+    }
+  }, 250);
+  setTimeout(cleanup, 60000);
 }
 
 // Iniciar Scanner para o PDV
