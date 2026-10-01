@@ -127,6 +127,7 @@ async function processSaleTransaction(saleData) {
     saleId: saleRef.id,
     items: saleData.items, // [{ id, name, size, color, qty, price, total }]
     subtotal: parseFloat(saleData.subtotal),
+    jewelryAmount: parseFloat(saleData.jewelryAmount) || 0,
     discount: parseFloat(saleData.discount || 0),
     total: parseFloat(saleData.total),
     paymentMethod: saleData.paymentMethod, // PIX, CARTAO_CREDITO, CARTAO_DEBITO, DINHEIRO
@@ -218,6 +219,10 @@ async function cancelSaleTransaction(saleId) {
 }
 
 function addSaleFinancialEntriesToBatch(batch, sale, saleId, timestamp) {
+  if (Number(sale.jewelryAmount) > 0) {
+    const jewelryRef = db.collection('financialEntries').doc(`sale_${saleId}_jewelry`);
+    batch.set(jewelryRef, { type: 'tracking', amount: Number(sale.jewelryAmount), description: `Bijuterias · venda #${String(saleId).slice(0, 8).toUpperCase()}`, saleId, clientId: sale.clientId || '', clientName: sale.clientName || '', source: 'jewelry_sale', status: 'recorded', automatic: true, createdAt: timestamp }, { merge: true });
+  }
   if (sale.paymentMethod === 'COMBINADO' && Array.isArray(sale.payments) && sale.payments.length) {
     sale.payments.forEach((payment, paymentIndex) => {
       const installments = payment.method === 'CREDITO_LOJA' ? (parseInt(payment.installments) || 1) : 1;

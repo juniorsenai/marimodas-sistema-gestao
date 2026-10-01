@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
   <!-- App Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=20261001-2" />
+  <link rel="stylesheet" href="css/styles.css?v=20261001-3" />
 
   <!-- Firebase SDK v9 Compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -351,6 +351,12 @@
 
           <div class="cart-items" id="cart-items-list"></div>
 
+          <div class="form-group jewelry-cart-field" style="margin-bottom:0.75rem;">
+            <label style="font-size:0.82rem;"><i class="fa-solid fa-gem"></i> Bijuterias (R$)</label>
+            <input type="number" id="cart-jewelry" class="form-control" value="0" min="0" step="0.01" placeholder="0,00" style="padding:8px 12px;" />
+            <small>Informe apenas o valor total das bijuterias.</small>
+          </div>
+
           <!-- Desconto -->
           <div class="form-group" style="margin-bottom:0.75rem;">
             <label style="font-size:0.82rem;"><i class="fa-solid fa-tag"></i> Desconto (R$)</label>
@@ -359,8 +365,12 @@
 
           <div class="cart-summary">
             <div class="summary-row">
-              <span>Subtotal</span>
+              <span>Roupas</span>
               <span id="cart-subtotal">R$ 0,00</span>
+            </div>
+            <div class="summary-row jewelry-summary-row" id="cart-jewelry-row" style="display:none;">
+              <span>Bijuterias</span>
+              <span id="cart-jewelry-display">R$ 0,00</span>
             </div>
             <div class="summary-row">
               <span>Desconto</span>
@@ -786,7 +796,8 @@
     <div class="modal-body">
       <!-- Resumo -->
       <div style="background:rgba(15,23,42,0.5); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem;">
-        <div class="summary-row" style="margin-bottom:6px;"><span>Subtotal</span><span id="checkout-subtotal">R$ 0,00</span></div>
+        <div class="summary-row" style="margin-bottom:6px;"><span>Roupas</span><span id="checkout-subtotal">R$ 0,00</span></div>
+        <div class="summary-row" id="checkout-jewelry-row" style="display:none; margin-bottom:6px;"><span>Bijuterias</span><span id="checkout-jewelry">R$ 0,00</span></div>
         <div class="summary-row" style="margin-bottom:6px;"><span>Desconto</span><span id="checkout-discount" style="color:var(--success);">- R$ 0,00</span></div>
         <div class="summary-row" id="checkout-card-fee-row" style="display:none; margin-bottom:6px;"><span>Acréscimo da taxa</span><span id="checkout-card-fee" style="color:var(--warning);">+ R$ 0,00</span></div>
         <div class="summary-row total"><span>TOTAL A PAGAR</span><span id="checkout-total">R$ 0,00</span></div>
@@ -934,13 +945,13 @@
      ======================================================== -->
 <script src="js/firebase-config.js?v=20260917-2"></script>
 <script src="js/auth.js?v=20260918-1"></script>
-<script src="js/db.js?v=20261001-1"></script>
+<script src="js/db.js?v=20261001-3"></script>
 <script src="js/scanner.js?v=20260917-2"></script>
 <script src="js/inventory.js?v=20260924-2"></script>
-<script src="js/pdv.js?v=20261001-2"></script>
-<script src="js/sales.js?v=20261001-1"></script>
-<script src="js/management.js?v=20261001-1"></script>
-<script src="js/app.js?v=20261001-1"></script>
+<script src="js/pdv.js?v=20261001-3"></script>
+<script src="js/sales.js?v=20261001-3"></script>
+<script src="js/management.js?v=20261001-3"></script>
+<script src="js/app.js?v=20261001-3"></script>
 
 <script>
   // Scanner inline no formulário de produto

@@ -129,13 +129,16 @@ function removeFromCart(productId) {
 
 // Limpar carrinho
 function clearCart() {
-  if (cartItems.length > 0 && confirm("Deseja limpar o carrinho e cancelar a venda atual?")) {
+  if ((cartItems.length > 0 || getJewelryAmount() > 0) && confirm("Deseja limpar o carrinho e cancelar a venda atual?")) {
     cartItems = [];
     cartDiscount = 0;
     document.getElementById('cart-discount').value = 0;
+    document.getElementById('cart-jewelry').value = 0;
     renderCart();
   }
 }
+
+function getJewelryAmount() { return Math.max(0, Number(document.getElementById('cart-jewelry')?.value || 0)); }
 
 // Renderizar o Carrinho de Compras
 function renderCart() {
@@ -143,7 +146,9 @@ function renderCart() {
   const cartBadge = document.getElementById('cart-items-count');
   const cartEmptyMsg = document.getElementById('cart-empty-msg');
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const clothingSubtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const jewelryAmount = getJewelryAmount();
+  const subtotal = clothingSubtotal + jewelryAmount;
   const discount = parseFloat(document.getElementById('cart-discount')?.value || 0) || 0;
   cartDiscount = discount;
   const total = Math.max(subtotal - discount, 0);
@@ -155,8 +160,10 @@ function renderCart() {
   if (!cartList) return;
   cartList.innerHTML = '';
 
-  if (cartItems.length === 0) {
+  if (cartItems.length === 0 && jewelryAmount <= 0) {
     if (cartEmptyMsg) cartEmptyMsg.style.display = 'flex';
+    const jewelryRow = document.getElementById('cart-jewelry-row');
+    if (jewelryRow) jewelryRow.style.display = 'none';
     updateCartTotals(0, 0, 0);
     return;
   }
@@ -188,7 +195,11 @@ function renderCart() {
     cartList.appendChild(itemEl);
   });
 
-  updateCartTotals(subtotal, discount, total);
+  updateCartTotals(clothingSubtotal, discount, total);
+  const jewelryRow = document.getElementById('cart-jewelry-row');
+  if (jewelryRow) jewelryRow.style.display = jewelryAmount > 0 ? 'flex' : 'none';
+  const jewelryDisplay = document.getElementById('cart-jewelry-display');
+  if (jewelryDisplay) jewelryDisplay.textContent = `R$ ${jewelryAmount.toFixed(2)}`;
 }
 
 function updateCartTotals(subtotal, discount, total) {
@@ -202,7 +213,7 @@ function updateCartTotals(subtotal, discount, total) {
 }
 
 function recalcChange() {
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0) + getJewelryAmount();
   const discount = parseFloat(document.getElementById('cart-discount')?.value || 0) || 0;
   const total = Math.max(subtotal - discount, 0);
   const cashReceived = parseFloat(document.getElementById('cash-received')?.value || 0) || 0;
@@ -213,19 +224,24 @@ function recalcChange() {
 
 // Abrir Modal de Finalização de Venda
 function openCheckoutModal() {
-  if (cartItems.length === 0) {
-    showToast("Adicione itens ao carrinho antes de finalizar.", "warning");
+  if (cartItems.length === 0 && getJewelryAmount() <= 0) {
+    showToast("Adicione roupas ou o valor das bijuterias antes de finalizar.", "warning");
     return;
   }
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const jewelryAmount = getJewelryAmount();
+  const clothingSubtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const subtotal = clothingSubtotal + jewelryAmount;
   const discount = parseFloat(document.getElementById('cart-discount')?.value || 0) || 0;
   const total = Math.max(subtotal - discount, 0);
 
   const el = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
-  el('checkout-subtotal', `R$ ${subtotal.toFixed(2)}`);
+  el('checkout-subtotal', `R$ ${clothingSubtotal.toFixed(2)}`);
   el('checkout-discount', `- R$ ${discount.toFixed(2)}`);
   el('checkout-total', `R$ ${total.toFixed(2)}`);
+  el('checkout-jewelry', `R$ ${jewelryAmount.toFixed(2)}`);
+  const checkoutJewelryRow = document.getElementById('checkout-jewelry-row');
+  if (checkoutJewelryRow) checkoutJewelryRow.style.display = jewelryAmount > 0 ? 'flex' : 'none';
 
   // Resetar campos de pagamento
   document.getElementById('cash-received').value = '';
@@ -313,7 +329,7 @@ function updateCombinedPaymentSummary() {
 }
 
 function getCurrentCartTotal() {
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0) + getJewelryAmount();
   const discount = parseFloat(document.getElementById('cart-discount')?.value || 0) || 0;
   return Math.max(subtotal - discount, 0);
 }
@@ -397,7 +413,8 @@ async function finalizeSale() {
     return;
   }
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const jewelryAmount = getJewelryAmount();
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0) + jewelryAmount;
   const discount = parseFloat(document.getElementById('cart-discount')?.value || 0) || 0;
   const total = Math.max(subtotal - discount, 0);
   const paymentMethod = selectedPaymentBtn.dataset.payment;
@@ -457,6 +474,7 @@ async function finalizeSale() {
         total: i.price * i.qty
       })),
       subtotal,
+      jewelryAmount,
       discount,
       total,
       paymentMethod,
@@ -493,6 +511,7 @@ async function finalizeSale() {
     // Limpar carrinho
     cartItems = [];
     cartDiscount = 0;
+    document.getElementById('cart-jewelry').value = 0;
     renderCart();
 
     showToast("Venda finalizada com sucesso! 🎉", "success");
@@ -549,7 +568,8 @@ function openReceiptModal(sale) {
     </div>
     <div>${itemsHtml}</div>
     <div style="margin-top:12px; padding-top:8px; border-top:1px dashed #ccc;">
-      <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>R$ ${sale.subtotal.toFixed(2)}</span></div>
+      <div style="display:flex; justify-content:space-between;"><span>Roupas:</span><span>R$ ${Math.max(0, sale.subtotal - Number(sale.jewelryAmount || 0)).toFixed(2)}</span></div>
+      ${Number(sale.jewelryAmount) > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Bijuterias:</span><span>R$ ${Number(sale.jewelryAmount).toFixed(2)}</span></div>` : ''}
       ${sale.discount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Desconto:</span><span>- R$ ${sale.discount.toFixed(2)}</span></div>` : ''}
       ${(sale.paymentMethod === 'CARTAO_CREDITO' || sale.paymentMethod === 'COMBINADO') && sale.cardFeePayer === 'CUSTOMER' && sale.cardFeeAmount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Acréscimo da taxa:</span><span>R$ ${sale.cardFeeAmount.toFixed(2)}</span></div>` : ''}
       <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem; margin-top:4px;">

@@ -1184,6 +1184,14 @@ body {
 .combined-payment-summary { display:flex; justify-content:space-between; gap:10px; margin-top:10px; padding:9px; border-radius:var(--radius-sm); background:rgba(16,185,129,.1); color:var(--success); }
 .combined-payment-summary.invalid { background:rgba(245,158,11,.1); color:var(--warning); }
 .combined-payment-section > small { display:block; margin-top:7px; color:var(--text-muted); }
+.jewelry-cart-field { padding:10px; border:1px solid rgba(245,158,11,.25); border-radius:var(--radius-md); background:rgba(245,158,11,.06); }
+.jewelry-cart-field label i, .jewelry-summary-row { color:var(--warning); }
+.jewelry-cart-field small { display:block; margin-top:5px; color:var(--text-muted); font-size:.72rem; }
+.jewelry-revenue-card { display:flex; align-items:center; gap:13px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
+.jewelry-revenue-card .stat-icon.jewelry { background:rgba(245,158,11,.15); color:var(--warning); }
+.jewelry-revenue-card > div:last-child { display:flex; flex-direction:column; }
+.jewelry-revenue-card span, .jewelry-revenue-card small { color:var(--text-secondary); }
+.jewelry-revenue-card strong { color:var(--warning); font-size:1.35rem; margin:2px 0; }
 .receivable-stat-card { position:relative; width:100%; text-align:left; font:inherit; color:var(--text-primary); cursor:pointer; }
 .receivable-stat-card .stat-info h3 { color:var(--text-primary); }
 .receivable-stat-card:hover { border-color:var(--warning); transform:translateY(-2px); }

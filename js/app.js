@@ -298,6 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-checkout')?.addEventListener('click', openCheckoutModal);
   document.getElementById('btn-clear-cart')?.addEventListener('click', clearCart);
   document.getElementById('cart-discount')?.addEventListener('input', () => renderCart());
+  document.getElementById('cart-jewelry')?.addEventListener('input', () => renderCart());
   document.getElementById('cash-received')?.addEventListener('input', recalcChange);
   document.getElementById('btn-finalize-sale')?.addEventListener('click', finalizeSale);
   document.querySelectorAll('.payment-method-btn').forEach(btn => {

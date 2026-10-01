@@ -323,11 +323,14 @@ async function openClientProfile(id) {
 
 function renderFinance() {
   const entries = allFinancialEntries.filter(entry => entry.status !== 'cancelled');
+  const flowEntries = entries.filter(entry => entry.type !== 'tracking');
   syncExistingSalesToFinance();
   const income = entries.filter(e => e.type === 'income' && e.status === 'paid').reduce((s, e) => s + Number(e.amount), 0);
   const expense = entries.filter(e => e.type === 'expense' && e.status === 'paid').reduce((s, e) => s + Number(e.amount), 0);
   const receivable = entries.filter(e => e.status === 'pending').reduce((s, e) => s + Number(e.amount), 0);
   const balance = income - expense;
+  const jewelrySales = entries.filter(entry => entry.source === 'jewelry_sale');
+  const jewelryRevenue = jewelrySales.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
   const inventoryCapital = (allProducts || []).reduce((sum, product) => sum + (Number(product.costPrice) || 0) * (Number(product.stockQty) || 0), 0);
   const inventoryExpectedRevenue = (allProducts || []).reduce((sum, product) => sum + (Number(product.sellPrice) || 0) * (Number(product.stockQty) || 0), 0);
   const inventoryPotentialMargin = inventoryExpectedRevenue - inventoryCapital;
@@ -341,6 +344,7 @@ function renderFinance() {
       <button class="stat-card receivable-stat-card" type="button" onclick="openReceivablesOverview()"><div class="stat-icon amber"><i class="fa-solid fa-clock"></i></div><div class="stat-info"><h3>${mgMoney(receivable)}</h3><p>A receber (fiado)</p><small>Clique para ver os clientes</small></div><i class="fa-solid fa-chevron-right receivable-card-arrow"></i></button>
       <div class="stat-card"><div class="stat-icon ${balance < 0 ? 'pink' : 'purple'}"><i class="fa-solid fa-scale-balanced"></i></div><div class="stat-info"><h3 style="color:${balance < 0 ? 'var(--danger)' : 'var(--text-primary)'}">${mgMoney(balance)}</h3><p>Saldo atual</p></div></div>
     </div>
+    <div class="jewelry-revenue-card table-container"><div class="stat-icon jewelry"><i class="fa-solid fa-gem"></i></div><div><span>Vendas de bijuterias</span><strong>${mgMoney(jewelryRevenue)}</strong><small>${jewelrySales.length} venda(s), sem controle de estoque</small></div></div>
     <div class="credit-receive-action table-container"><div><h3><i class="fa-solid fa-hand-holding-dollar"></i> Receber pagamento de fiado</h3><p>Registre o valor exato pago e desconte do saldo devedor da cliente.</p></div><button class="btn btn-success" type="button" onclick="openCreditPaymentModal()"><i class="fa-solid fa-coins"></i> Receber fiado</button></div>
     <div class="inventory-capital-control table-container">
       <div>
@@ -368,7 +372,7 @@ function renderFinance() {
       </form>
       <div class="table-container management-list"><div class="list-heading"><h3>Fluxo financeiro</h3></div>
         <div class="custom-table-responsive"><table class="custom-table"><thead><tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th></th></tr></thead><tbody>
-        ${entries.length ? entries.map(e => `<tr><td>${escapeHtml(e.description)}${e.clientName ? `<small class="finance-client-name"><i class="fa-solid fa-user"></i> ${escapeHtml(e.clientName)}</small>` : ''}</td><td class="${e.type === 'expense' ? 'amount-out' : 'amount-in'}">${mgMoney(e.amount)}</td><td>${e.dueDate ? new Date(e.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td><td><span class="badge ${e.status === 'pending' ? 'badge-warning' : 'badge-success'}">${e.status === 'pending' ? 'Pendente' : e.status === 'settled' ? 'Quitado' : 'Pago'}</span></td><td>${e.status === 'pending' && e.clientId ? `<button class="btn btn-success btn-sm" onclick="openCreditPaymentModal('${e.clientId}')">Receber</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum lançamento.</td></tr>'}
+        ${flowEntries.length ? flowEntries.map(e => `<tr><td>${escapeHtml(e.description)}${e.clientName ? `<small class="finance-client-name"><i class="fa-solid fa-user"></i> ${escapeHtml(e.clientName)}</small>` : ''}</td><td class="${e.type === 'expense' ? 'amount-out' : 'amount-in'}">${mgMoney(e.amount)}</td><td>${e.dueDate ? new Date(e.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td><td><span class="badge ${e.status === 'pending' ? 'badge-warning' : 'badge-success'}">${e.status === 'pending' ? 'Pendente' : e.status === 'settled' ? 'Quitado' : 'Pago'}</span></td><td>${e.status === 'pending' && e.clientId ? `<button class="btn btn-success btn-sm" onclick="openCreditPaymentModal('${e.clientId}')">Receber</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty-cell">Nenhum lançamento.</td></tr>'}
         </tbody></table></div></div>
     </div>`;
 }

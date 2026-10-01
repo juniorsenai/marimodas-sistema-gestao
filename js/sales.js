@@ -13,7 +13,7 @@ function loadSales() {
     });
     renderSalesUI();
     if (window.updateDashboardStats) window.updateDashboardStats();
-    if (typeof managementTab !== 'undefined' && managementTab === 'clients' && window.renderManagement) window.renderManagement();
+    if (typeof managementTab !== 'undefined' && (managementTab === 'clients' || managementTab === 'finance') && window.renderManagement) window.renderManagement();
   }, error => {
     console.error("Erro ao carregar vendas:", error);
     showToast("Erro ao carregar histórico de vendas.", "danger");
@@ -187,6 +187,7 @@ function openSaleDetailsModal(saleId) {
     </div>
     <div style="margin-top:1rem; text-align:right;">
       ${sale.discount > 0 ? `<p style="color:var(--text-secondary);">Desconto: - R$ ${(sale.discount || 0).toFixed(2)}</p>` : ''}
+      ${Number(sale.jewelryAmount) > 0 ? `<p style="color:var(--warning);">Bijuterias: R$ ${Number(sale.jewelryAmount).toFixed(2)}</p>` : ''}
       <p style="font-size:1.3rem; font-weight:700; color:var(--accent-primary);">
         Total: R$ ${(sale.total || 0).toFixed(2)}
       </p>
@@ -239,7 +240,7 @@ function exportSalesToCSV() {
     return;
   }
 
-  const headers = ['ID Venda', 'Data', 'Operador', 'Itens', 'Subtotal (R$)', 'Desconto (R$)', 'Total (R$)', 'Pagamento', 'Status'];
+  const headers = ['ID Venda', 'Data', 'Operador', 'Itens', 'Subtotal (R$)', 'Bijuterias (R$)', 'Desconto (R$)', 'Total (R$)', 'Pagamento', 'Status'];
 
   const rows = activeSales.map(sale => {
     const date = sale.createdAt && sale.createdAt.toDate
@@ -252,6 +253,7 @@ function exportSalesToCSV() {
       sale.cashierName || '',
       itemsStr,
       (sale.subtotal || 0).toFixed(2),
+      Number(sale.jewelryAmount || 0).toFixed(2),
       (sale.discount || 0).toFixed(2),
       (sale.total || 0).toFixed(2),
       sale.paymentMethod,
