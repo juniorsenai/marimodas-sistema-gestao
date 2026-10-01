@@ -123,7 +123,7 @@ function renderRecentSales() {
   }
 
   const paymentIcons = {
-    'DINHEIRO': '💵', 'PIX': '📲', 'CARTAO_CREDITO': '💳 Créd.', 'CARTAO_DEBITO': '💳 Déb.'
+    'DINHEIRO': '💵', 'PIX': '📲', 'CARTAO_CREDITO': '💳 Créd.', 'CARTAO_DEBITO': '💳 Déb.', 'COMBINADO': '🔀 Combinado'
   };
 
   container.innerHTML = recent.map(sale => {

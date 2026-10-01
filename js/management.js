@@ -156,7 +156,7 @@ function renderClients() {
         <div class="custom-table-responsive"><table class="custom-table"><thead><tr><th>Nome</th><th>WhatsApp</th><th>Compras</th><th>Preferência</th><th>Ações</th></tr></thead>
         <tbody>${clients.length ? clients.map(c => {
           const sales = activeSales.filter(sale => sale.clientId === c.id);
-          const counts = sales.reduce((result, sale) => ({ ...result, [sale.paymentMethod]: (result[sale.paymentMethod] || 0) + 1 }), {});
+          const counts = sales.reduce(addSalePaymentCounts, {});
           const favorite = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
           const searchText = `${c.name || ''} ${c.phone || ''} ${c.email || ''} ${c.birthDate || ''} ${formatBirthDate(c.birthDate)}`;
           return `<tr class="management-client-row" data-client-search="${escapeHtml(searchText)}"><td><b>${escapeHtml(c.name)}</b><small class="client-secondary">${c.birthDate ? `🎂 ${formatBirthDate(c.birthDate)}` : escapeHtml(c.email || '')}</small></td><td>${c.phone ? `<a class="whatsapp-link" href="${getClientWhatsAppUrl(c.phone)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> ${escapeHtml(c.phone)}</a>` : '—'}</td><td>${sales.length}</td><td>${favorite ? getPaymentLabel(favorite) : '—'}</td><td><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openClientProfile('${c.id}')" title="Ver perfil e histórico"><i class="fa-solid fa-chart-pie"></i></button><button class="btn btn-secondary btn-sm" onclick="openEditClientModal('${c.id}')" title="Editar dados"><i class="fa-solid fa-pen"></i></button>${c.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${c.id}')" title="Conversar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')" title="Excluir"><i class="fa-solid fa-trash"></i></button></div></td></tr>`;
@@ -248,7 +248,12 @@ function openClientWhatsApp(id) {
 }
 
 function getPaymentLabel(method) {
-  return ({ DINHEIRO: 'Dinheiro', PIX: 'PIX', CARTAO_CREDITO: 'Crédito', CARTAO_DEBITO: 'Débito', CREDITO_LOJA: 'Fiado' })[method] || method;
+  return ({ DINHEIRO: 'Dinheiro', PIX: 'PIX', CARTAO_CREDITO: 'Crédito', CARTAO_DEBITO: 'Débito', CREDITO_LOJA: 'Fiado', COMBINADO: 'Combinado' })[method] || method;
+}
+function addSalePaymentCounts(counts, sale) {
+  const methods = sale.paymentMethod === 'COMBINADO' && Array.isArray(sale.payments) ? sale.payments.map(payment => payment.method) : [sale.paymentMethod];
+  methods.filter(Boolean).forEach(method => { counts[method] = (counts[method] || 0) + 1; });
+  return counts;
 }
 
 function getBirthdayParts(value) {
@@ -307,7 +312,7 @@ async function openClientProfile(id) {
   } catch (error) { console.error('Erro ao buscar histórico completo do cliente:', error); }
   const total = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
   const pendingDebt = allFinancialEntries.filter(entry => entry.clientId === id && entry.status === 'pending').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const counts = sales.reduce((result, sale) => ({ ...result, [sale.paymentMethod]: (result[sale.paymentMethod] || 0) + 1 }), {});
+  const counts = sales.reduce(addSalePaymentCounts, {});
   const preferred = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
   const paymentSummary = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([method, count]) => `<span>${getPaymentLabel(method)}: <b>${count}</b></span>`).join('');
   let modal = document.getElementById('client-profile-modal');
@@ -333,7 +338,7 @@ function renderFinance() {
     <div class="stats-grid compact-stats">
       <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div><div class="stat-info"><h3>${mgMoney(income)}</h3><p>Entradas</p></div></div>
       <div class="stat-card"><div class="stat-icon pink"><i class="fa-solid fa-arrow-trend-down"></i></div><div class="stat-info"><h3>${mgMoney(expense)}</h3><p>Saídas</p></div></div>
-      <div class="stat-card"><div class="stat-icon amber"><i class="fa-solid fa-clock"></i></div><div class="stat-info"><h3>${mgMoney(receivable)}</h3><p>A receber (fiado)</p></div></div>
+      <button class="stat-card receivable-stat-card" type="button" onclick="openReceivablesOverview()"><div class="stat-icon amber"><i class="fa-solid fa-clock"></i></div><div class="stat-info"><h3>${mgMoney(receivable)}</h3><p>A receber (fiado)</p><small>Clique para ver os clientes</small></div><i class="fa-solid fa-chevron-right receivable-card-arrow"></i></button>
       <div class="stat-card"><div class="stat-icon ${balance < 0 ? 'pink' : 'purple'}"><i class="fa-solid fa-scale-balanced"></i></div><div class="stat-info"><h3 style="color:${balance < 0 ? 'var(--danger)' : 'var(--text-primary)'}">${mgMoney(balance)}</h3><p>Saldo atual</p></div></div>
     </div>
     <div class="credit-receive-action table-container"><div><h3><i class="fa-solid fa-hand-holding-dollar"></i> Receber pagamento de fiado</h3><p>Registre o valor exato pago e desconte do saldo devedor da cliente.</p></div><button class="btn btn-success" type="button" onclick="openCreditPaymentModal()"><i class="fa-solid fa-coins"></i> Receber fiado</button></div>
@@ -388,6 +393,30 @@ async function saveFinanceEntry(event) {
 }
 function getClientPendingDebt(clientId) {
   return allFinancialEntries.filter(entry => entry.clientId === clientId && entry.status === 'pending').reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+}
+function openReceivablesOverview() {
+  const debtors = getManagementClients().map(client => ({ ...client, debt: getClientPendingDebt(client.id) })).filter(client => client.debt > 0).sort((a, b) => b.debt - a.debt);
+  let modal = document.getElementById('receivables-overview-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'receivables-overview-modal'; modal.className = 'modal-overlay'; document.body.appendChild(modal); }
+  modal.innerHTML = `<div class="modal-card receivables-overview-card"><div class="modal-header"><div><h3><i class="fa-solid fa-users-dollar"></i> Clientes com fiado pendente</h3><small>${debtors.length} cliente(s) · Total ${mgMoney(debtors.reduce((sum, client) => sum + client.debt, 0))}</small></div><button class="modal-close" onclick="closeReceivablesOverview()"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="client-search-box"><i class="fa-solid fa-magnifying-glass"></i><input class="form-control" type="search" placeholder="Buscar cliente por nome ou WhatsApp..." oninput="filterReceivableClients(this.value)"></div><div class="receivable-client-list">${debtors.length ? debtors.map(client => `<div class="receivable-client-row" data-receivable-search="${escapeHtml(`${client.name} ${client.phone || ''}`)}"><div><b>${escapeHtml(client.name)}</b><small>${escapeHtml(client.phone || 'Sem WhatsApp')}</small></div><strong>${mgMoney(client.debt)}</strong><div class="client-actions"><button class="btn btn-secondary btn-sm" onclick="openReceivableClientHistory('${client.id}')"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</button><button class="btn btn-success btn-sm" onclick="closeReceivablesOverview(); openCreditPaymentModal('${client.id}')"><i class="fa-solid fa-coins"></i> Receber</button></div></div>`).join('') : '<div class="empty-cell">Nenhum cliente possui fiado pendente.</div>'}<div id="receivable-search-empty" class="empty-cell" style="display:none;">Nenhum cliente encontrado.</div></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeReceivablesOverview()">Fechar</button></div></div>`;
+  modal.classList.add('active');
+}
+function closeReceivablesOverview() { document.getElementById('receivables-overview-modal')?.classList.remove('active'); }
+function filterReceivableClients(value) {
+  const query = normalizeClientSearch(value); const rows = Array.from(document.querySelectorAll('.receivable-client-row')); let visible = 0;
+  rows.forEach(row => { const matches = !query || normalizeClientSearch(row.dataset.receivableSearch).includes(query); row.style.display = matches ? '' : 'none'; if (matches) visible++; });
+  const empty = document.getElementById('receivable-search-empty'); if (empty) empty.style.display = rows.length && !visible ? 'block' : 'none';
+}
+function openReceivableClientHistory(clientId) {
+  const client = getManagementClients().find(item => item.id === clientId); if (!client) return;
+  const entries = allFinancialEntries.filter(entry => entry.clientId === clientId && entry.paymentMethod === 'CREDITO_LOJA');
+  const payments = entries.filter(entry => entry.status === 'paid').sort((a, b) => (b.paidAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0) - (a.paidAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0));
+  const pending = entries.filter(entry => entry.status === 'pending').sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')));
+  let modal = document.getElementById('receivable-client-history-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'receivable-client-history-modal'; modal.className = 'modal-overlay'; document.body.appendChild(modal); }
+  const formatEntryDate = entry => { const value = entry.paidAt || entry.createdAt; return value?.toDate ? value.toDate().toLocaleDateString('pt-BR') : entry.dueDate ? new Date(entry.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'; };
+  modal.innerHTML = `<div class="modal-card receivable-history-card"><div class="modal-header"><div><h3>${escapeHtml(client.name)}</h3><small>Histórico do fiado</small></div><button class="modal-close" onclick="document.getElementById('receivable-client-history-modal').classList.remove('active')"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="receivable-history-balance"><span>Falta receber</span><strong>${mgMoney(getClientPendingDebt(clientId))}</strong></div><h4>Contas pendentes</h4><div class="receivable-history-list">${pending.length ? pending.map(entry => `<div><span><b>${escapeHtml(entry.description)}</b><small>Vencimento: ${entry.dueDate ? new Date(entry.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</small></span><strong>${mgMoney(entry.amount)}</strong></div>`).join('') : '<p class="empty-cell">Nenhuma conta pendente.</p>'}</div><h4 class="receivable-payments-title">Pagamentos realizados</h4><div class="receivable-history-list">${payments.length ? payments.map(entry => `<div><span><b>${escapeHtml(entry.description)}</b><small>${formatEntryDate(entry)}</small></span><strong class="amount-in">${mgMoney(entry.amount)}</strong></div>`).join('') : '<p class="empty-cell">Nenhum pagamento registrado.</p>'}</div></div><div class="modal-footer"><button class="btn btn-success" onclick="document.getElementById('receivable-client-history-modal').classList.remove('active'); closeReceivablesOverview(); openCreditPaymentModal('${clientId}')"><i class="fa-solid fa-coins"></i> Receber</button><button class="btn btn-secondary" onclick="document.getElementById('receivable-client-history-modal').classList.remove('active')">Fechar</button></div></div>`;
+  modal.classList.add('active');
 }
 function openCreditPaymentModal(selectedClientId = '') {
   const debtors = getManagementClients().map(client => ({ ...client, debt: getClientPendingDebt(client.id) })).filter(client => client.debt > 0).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));

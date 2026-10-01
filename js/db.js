@@ -130,6 +130,7 @@ async function processSaleTransaction(saleData) {
     discount: parseFloat(saleData.discount || 0),
     total: parseFloat(saleData.total),
     paymentMethod: saleData.paymentMethod, // PIX, CARTAO_CREDITO, CARTAO_DEBITO, DINHEIRO
+    payments: Array.isArray(saleData.payments) ? saleData.payments : [],
     clientId: saleData.clientId || '',
     clientName: saleData.clientName || '',
     dueDate: saleData.dueDate || '',
@@ -217,6 +218,35 @@ async function cancelSaleTransaction(saleId) {
 }
 
 function addSaleFinancialEntriesToBatch(batch, sale, saleId, timestamp) {
+  if (sale.paymentMethod === 'COMBINADO' && Array.isArray(sale.payments) && sale.payments.length) {
+    sale.payments.forEach((payment, paymentIndex) => {
+      const installments = payment.method === 'CREDITO_LOJA' ? (parseInt(payment.installments) || 1) : 1;
+      const totalCents = Math.round(Number(payment.amount || 0) * 100);
+      const baseCents = Math.floor(totalCents / installments);
+      const firstDue = payment.dueDate ? new Date(payment.dueDate + 'T12:00:00') : new Date();
+      const preferredDay = firstDue.getDate();
+      for (let index = 0; index < installments; index++) {
+        const cents = index === installments - 1 ? totalCents - (baseCents * (installments - 1)) : baseCents;
+        const due = new Date(firstDue); due.setDate(1); due.setMonth(due.getMonth() + index);
+        const lastDay = new Date(due.getFullYear(), due.getMonth() + 1, 0).getDate(); due.setDate(Math.min(preferredDay, lastDay));
+        const entryRef = db.collection('financialEntries').doc(`sale_${saleId}_pay${paymentIndex + 1}_${index + 1}`);
+        batch.set(entryRef, {
+          type: 'income', amount: cents / 100,
+          description: payment.method === 'CREDITO_LOJA'
+            ? `Fiado de ${sale.clientName || 'cliente'} · venda #${String(saleId).slice(0, 8).toUpperCase()} · parcela ${index + 1}/${installments}`
+            : `Venda #${String(saleId).slice(0, 8).toUpperCase()} · ${payment.method}`,
+          saleId, clientId: sale.clientId || '', clientName: sale.clientName || '', paymentMethod: payment.method,
+          installment: index + 1, installments, dueDate: due.toISOString().slice(0, 10),
+          status: payment.method === 'CREDITO_LOJA' ? 'pending' : 'paid', automatic: true, createdAt: timestamp
+        });
+      }
+      if (payment.method === 'CARTAO_CREDITO' && payment.feePayer !== 'CUSTOMER' && Number(payment.feeAmount) > 0) {
+        const feeRef = db.collection('financialEntries').doc(`sale_${saleId}_pay${paymentIndex + 1}_fee`);
+        batch.set(feeRef, { type: 'expense', amount: Number(payment.feeAmount), description: `Taxa ${systemSettings?.terminal || 'Mercado Pago'} · venda #${String(saleId).slice(0, 8).toUpperCase()} · ${payment.installments || 1}x`, saleId, clientId: sale.clientId || '', clientName: sale.clientName || '', paymentMethod: payment.method, installments: payment.installments || 1, feeRate: payment.feeRate || 0, dueDate: firstDue.toISOString().slice(0, 10), status: 'paid', automatic: true, createdAt: timestamp });
+      }
+    });
+    return;
+  }
   const installments = sale.paymentMethod === 'CREDITO_LOJA' ? (parseInt(sale.installments) || 1) : 1;
   const totalCents = Math.round(Number(sale.total || 0) * 100);
   const baseCents = Math.floor(totalCents / installments);
@@ -242,6 +272,7 @@ function addSaleFinancialEntriesToBatch(batch, sale, saleId, timestamp) {
         : `Venda #${String(saleId).slice(0, 8).toUpperCase()}`,
       saleId,
       clientId: sale.clientId || '',
+      clientName: sale.clientName || '',
       paymentMethod: sale.paymentMethod,
       installment: index + 1,
       installments,

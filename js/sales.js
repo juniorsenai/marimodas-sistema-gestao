@@ -57,7 +57,8 @@ function renderSalesUI() {
     'PIX': '<i class="fa-brands fa-pix" style="color:var(--info)"></i> PIX',
     'CARTAO_CREDITO': '<i class="fa-solid fa-credit-card" style="color:var(--accent-primary)"></i> Créd.',
     'CARTAO_DEBITO': '<i class="fa-solid fa-credit-card" style="color:var(--accent-secondary)"></i> Déb.',
-    'CREDITO_LOJA': '<i class="fa-solid fa-address-card" style="color:var(--warning)"></i> Fiado'
+    'CREDITO_LOJA': '<i class="fa-solid fa-address-card" style="color:var(--warning)"></i> Fiado',
+    'COMBINADO': '<i class="fa-solid fa-code-branch" style="color:var(--accent-primary)"></i> Combinado'
   };
 
   if (filtered.length === 0) {
@@ -134,7 +135,8 @@ function openSaleDetailsModal(saleId) {
     'PIX': '📲 PIX',
     'CARTAO_CREDITO': '💳 Cartão de Crédito',
     'CARTAO_DEBITO': '💳 Cartão de Débito',
-    'CREDITO_LOJA': 'Crédito da loja (fiado)'
+    'CREDITO_LOJA': 'Crédito da loja (fiado)',
+    'COMBINADO': 'Pagamento combinado'
   };
 
   const date = sale.createdAt && sale.createdAt.toDate
@@ -189,6 +191,7 @@ function openSaleDetailsModal(saleId) {
         Total: R$ ${(sale.total || 0).toFixed(2)}
       </p>
       <p style="color:var(--text-secondary);">${paymentLabels[sale.paymentMethod] || sale.paymentMethod}</p>
+      ${sale.paymentMethod === 'COMBINADO' && Array.isArray(sale.payments) ? `<div class="sale-combined-details">${sale.payments.map(payment => `<span>${paymentLabels[payment.method] || payment.method}: <b>R$ ${Number(payment.chargedAmount ?? payment.amount).toFixed(2)}</b>${payment.installments > 1 ? ` · ${payment.installments}x` : ''}</span>`).join('')}</div>` : ''}
       <p style="color:var(--text-muted); font-size:0.85rem;">Cliente: ${escapeHtml(sale.clientName || '—')}</p>
       ${sale.paymentMethod === 'CREDITO_LOJA' ? `
         <p style="color:var(--text-muted); font-size:0.85rem;">

@@ -231,6 +231,7 @@ function openCheckoutModal() {
   document.getElementById('cash-received').value = '';
   document.getElementById('change-amount').textContent = 'R$ 0,00';
   document.querySelectorAll('.payment-method-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.combined-payment-input').forEach(input => { input.value = '0'; });
   const due = document.getElementById('store-credit-due');
   if (due) {
     const date = new Date();
@@ -248,6 +249,8 @@ function openCheckoutModal() {
   if (creditSection) creditSection.style.display = 'none';
   const cardSection = document.getElementById('card-credit-section');
   if (cardSection) cardSection.style.display = 'none';
+  const combinedSection = document.getElementById('combined-payment-section');
+  if (combinedSection) combinedSection.style.display = 'none';
   const feePayer = document.getElementById('card-fee-payer');
   if (feePayer) feePayer.value = 'STORE';
   resetCheckoutCardTotals(total);
@@ -270,11 +273,43 @@ function selectPaymentMethod(method) {
     cashSection.style.display = method === 'DINHEIRO' ? 'block' : 'none';
   }
   const creditSection = document.getElementById('store-credit-section');
-  if (creditSection) creditSection.style.display = method === 'CREDITO_LOJA' ? 'block' : 'none';
+  if (creditSection) creditSection.style.display = (method === 'CREDITO_LOJA' || method === 'COMBINADO') ? 'block' : 'none';
   const cardSection = document.getElementById('card-credit-section');
-  if (cardSection) cardSection.style.display = method === 'CARTAO_CREDITO' ? 'block' : 'none';
+  if (cardSection) cardSection.style.display = (method === 'CARTAO_CREDITO' || method === 'COMBINADO') ? 'block' : 'none';
+  const combinedSection = document.getElementById('combined-payment-section');
+  if (combinedSection) combinedSection.style.display = method === 'COMBINADO' ? 'block' : 'none';
   if (method === 'CARTAO_CREDITO') updateCardFeePreview();
+  else if (method === 'COMBINADO') updateCombinedPaymentSummary();
   else resetCheckoutCardTotals(getCurrentCartTotal());
+}
+
+function isCombinedPaymentSelected() {
+  return document.querySelector('.payment-method-btn.active')?.dataset.payment === 'COMBINADO';
+}
+function getCombinedAmount(id) { return Math.max(0, Number(document.getElementById(id)?.value || 0)); }
+function getCombinedPayments() {
+  return [
+    { method: 'PIX', amount: getCombinedAmount('combined-pix') },
+    { method: 'DINHEIRO', amount: getCombinedAmount('combined-cash') },
+    { method: 'CARTAO_CREDITO', amount: getCombinedAmount('combined-card-credit') },
+    { method: 'CARTAO_DEBITO', amount: getCombinedAmount('combined-card-debit') },
+    { method: 'CREDITO_LOJA', amount: getCombinedAmount('combined-store-credit') }
+  ].filter(payment => payment.amount > 0);
+}
+function updateCombinedPaymentSummary() {
+  const total = getCurrentCartTotal();
+  const payments = getCombinedPayments();
+  const distributed = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const remaining = Number((total - distributed).toFixed(2));
+  const summary = document.getElementById('combined-payment-summary');
+  if (summary) {
+    summary.classList.toggle('invalid', Math.abs(remaining) > 0.009);
+    summary.innerHTML = `<span>Distribuído: <b>R$ ${distributed.toFixed(2).replace('.', ',')}</b></span><span>${remaining >= 0 ? 'Falta' : 'Excedeu'}: <b>R$ ${Math.abs(remaining).toFixed(2).replace('.', ',')}</b></span>`;
+  }
+  const storeCreditAmount = getCombinedAmount('combined-store-credit');
+  const cardAmount = getCombinedAmount('combined-card-credit');
+  updateStoreCreditInstallments(storeCreditAmount);
+  updateCardCreditInstallments(cardAmount);
 }
 
 function getCurrentCartTotal() {
@@ -296,6 +331,7 @@ function updateCardCreditInstallments(total = getCurrentCartTotal()) {
 }
 
 function updateCardFeePreview(total = getCurrentCartTotal()) {
+  if (isCombinedPaymentSelected()) total = getCombinedAmount('combined-card-credit');
   const installments = Number(document.getElementById('card-credit-installments')?.value || 1);
   const rate = window.getCardFeeRate ? getCardFeeRate(installments) : 0;
   const feePayer = document.getElementById('card-fee-payer')?.value || 'STORE';
@@ -307,7 +343,8 @@ function updateCardFeePreview(total = getCurrentCartTotal()) {
   if (feeRow) feeRow.style.display = feePayer === 'CUSTOMER' && payment.feeAmount > 0 ? 'flex' : 'none';
   if (feeValue) feeValue.textContent = `+ R$ ${payment.feeAmount.toFixed(2).replace('.', ',')}`;
   const totalElement = document.getElementById('checkout-total');
-  if (totalElement) totalElement.textContent = `R$ ${payment.chargedTotal.toFixed(2).replace('.', ',')}`;
+  const checkoutTotal = isCombinedPaymentSelected() ? getCurrentCartTotal() + (feePayer === 'CUSTOMER' ? payment.feeAmount : 0) : payment.chargedTotal;
+  if (totalElement) totalElement.textContent = `R$ ${checkoutTotal.toFixed(2).replace('.', ',')}`;
 }
 
 function calculateCardPayment(total, rate, feePayer) {
@@ -364,15 +401,18 @@ async function finalizeSale() {
   const discount = parseFloat(document.getElementById('cart-discount')?.value || 0) || 0;
   const total = Math.max(subtotal - discount, 0);
   const paymentMethod = selectedPaymentBtn.dataset.payment;
+  const isCombined = paymentMethod === 'COMBINADO';
+  const combinedPayments = isCombined ? getCombinedPayments() : [];
   const cashReceived = parseFloat(document.getElementById('cash-received')?.value || total) || total;
   const clientId = document.getElementById('sale-client')?.value || '';
   const creditDueDate = document.getElementById('store-credit-due')?.value || '';
   const creditInstallments = Number(document.getElementById('store-credit-installments')?.value || 1);
   const cardInstallments = Number(document.getElementById('card-credit-installments')?.value || 1);
-  const cardFeeRate = paymentMethod === 'CARTAO_CREDITO' && window.getCardFeeRate ? getCardFeeRate(cardInstallments) : 0;
-  const cardFeePayer = paymentMethod === 'CARTAO_CREDITO' ? (document.getElementById('card-fee-payer')?.value || 'STORE') : '';
-  const cardPayment = paymentMethod === 'CARTAO_CREDITO'
-    ? calculateCardPayment(total, cardFeeRate, cardFeePayer)
+  const cardPartAmount = isCombined ? (combinedPayments.find(payment => payment.method === 'CARTAO_CREDITO')?.amount || 0) : total;
+  const cardFeeRate = (paymentMethod === 'CARTAO_CREDITO' || (isCombined && cardPartAmount > 0)) && window.getCardFeeRate ? getCardFeeRate(cardInstallments) : 0;
+  const cardFeePayer = paymentMethod === 'CARTAO_CREDITO' || (isCombined && cardPartAmount > 0) ? (document.getElementById('card-fee-payer')?.value || 'STORE') : '';
+  const cardPayment = paymentMethod === 'CARTAO_CREDITO' || (isCombined && cardPartAmount > 0)
+    ? calculateCardPayment(cardPartAmount, cardFeeRate, cardFeePayer)
     : { chargedTotal: total, feeAmount: 0, netAmount: total };
 
   if (paymentMethod === 'DINHEIRO' && cashReceived < total) {
@@ -384,11 +424,17 @@ async function finalizeSale() {
     showToast('Selecione ou cadastre o cliente antes de concluir a venda.', 'warning');
     return;
   }
-  if (paymentMethod === 'CREDITO_LOJA' && !creditDueDate) {
+  const storeCreditPartAmount = isCombined ? (combinedPayments.find(payment => payment.method === 'CREDITO_LOJA')?.amount || 0) : total;
+  if (isCombined) {
+    const distributed = combinedPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    if (combinedPayments.length < 2) { showToast('Informe pelo menos duas formas de pagamento.', 'warning'); return; }
+    if (Math.abs(distributed - total) > 0.009) { showToast('A soma das formas de pagamento deve ser igual ao total da compra.', 'warning'); return; }
+  }
+  if ((paymentMethod === 'CREDITO_LOJA' || (isCombined && storeCreditPartAmount > 0)) && !creditDueDate) {
     showToast('Informe o vencimento do fiado.', 'warning');
     return;
   }
-  if (paymentMethod === 'CREDITO_LOJA' && (creditInstallments < 1 || creditInstallments > getStoreCreditMaxInstallments(total))) {
+  if ((paymentMethod === 'CREDITO_LOJA' || (isCombined && storeCreditPartAmount > 0)) && (creditInstallments < 1 || creditInstallments > getStoreCreditMaxInstallments(storeCreditPartAmount))) {
     showToast('O parcelamento escolhido não é permitido para o valor desta compra.', 'warning');
     return;
   }
@@ -414,16 +460,26 @@ async function finalizeSale() {
       discount,
       total,
       paymentMethod,
+      payments: isCombined ? combinedPayments.map(payment => ({
+        ...payment,
+        installments: payment.method === 'CREDITO_LOJA' ? creditInstallments : payment.method === 'CARTAO_CREDITO' ? cardInstallments : 1,
+        dueDate: payment.method === 'CREDITO_LOJA' ? creditDueDate : '',
+        feeRate: payment.method === 'CARTAO_CREDITO' ? cardFeeRate : 0,
+        feePayer: payment.method === 'CARTAO_CREDITO' ? cardFeePayer : '',
+        feeAmount: payment.method === 'CARTAO_CREDITO' ? cardPayment.feeAmount : 0,
+        chargedAmount: payment.method === 'CARTAO_CREDITO' ? cardPayment.chargedTotal : payment.amount,
+        netAmount: payment.method === 'CARTAO_CREDITO' ? cardPayment.netAmount : payment.amount
+      })) : [],
       clientId,
       clientName: getManagementClients().find(c => c.id === clientId)?.name || '',
-      dueDate: paymentMethod === 'CREDITO_LOJA' ? creditDueDate : '',
-      installments: paymentMethod === 'CREDITO_LOJA' ? creditInstallments : 1,
-      cardInstallments: paymentMethod === 'CARTAO_CREDITO' ? cardInstallments : 1,
+      dueDate: (paymentMethod === 'CREDITO_LOJA' || isCombined) ? creditDueDate : '',
+      installments: (paymentMethod === 'CREDITO_LOJA' || isCombined) ? creditInstallments : 1,
+      cardInstallments: (paymentMethod === 'CARTAO_CREDITO' || isCombined) ? cardInstallments : 1,
       cardFeeRate,
       cardFeePayer,
       cardFeeAmount: cardPayment.feeAmount,
-      chargedTotal: cardPayment.chargedTotal,
-      netTotal: cardPayment.netAmount,
+      chargedTotal: isCombined ? total + (cardFeePayer === 'CUSTOMER' ? cardPayment.feeAmount : 0) : cardPayment.chargedTotal,
+      netTotal: isCombined ? total - (cardFeePayer === 'STORE' ? cardPayment.feeAmount : 0) : cardPayment.netAmount,
       cashReceived,
       changeGiven: Math.max(cashReceived - total, 0)
     };
@@ -461,8 +517,12 @@ function openReceiptModal(sale) {
     'PIX': '📲 PIX',
     'CARTAO_CREDITO': '💳 Cartão de Crédito',
     'CARTAO_DEBITO': '💳 Cartão de Débito',
-    'CREDITO_LOJA': '🪪 Crédito da loja (fiado)'
+    'CREDITO_LOJA': '🪪 Crédito da loja (fiado)',
+    'COMBINADO': '🔀 Pagamento combinado'
   };
+  const combinedPaymentsHtml = sale.paymentMethod === 'COMBINADO' && Array.isArray(sale.payments)
+    ? sale.payments.map(payment => `<div style="display:flex; justify-content:space-between;"><span>${paymentLabels[payment.method] || payment.method}${payment.installments > 1 ? ` (${payment.installments}x)` : ''}:</span><span>R$ ${Number(payment.chargedAmount ?? payment.amount).toFixed(2)}</span></div>`).join('')
+    : '';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -491,13 +551,14 @@ function openReceiptModal(sale) {
     <div style="margin-top:12px; padding-top:8px; border-top:1px dashed #ccc;">
       <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>R$ ${sale.subtotal.toFixed(2)}</span></div>
       ${sale.discount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Desconto:</span><span>- R$ ${sale.discount.toFixed(2)}</span></div>` : ''}
-      ${sale.paymentMethod === 'CARTAO_CREDITO' && sale.cardFeePayer === 'CUSTOMER' && sale.cardFeeAmount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Acréscimo da taxa:</span><span>R$ ${sale.cardFeeAmount.toFixed(2)}</span></div>` : ''}
+      ${(sale.paymentMethod === 'CARTAO_CREDITO' || sale.paymentMethod === 'COMBINADO') && sale.cardFeePayer === 'CUSTOMER' && sale.cardFeeAmount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Acréscimo da taxa:</span><span>R$ ${sale.cardFeeAmount.toFixed(2)}</span></div>` : ''}
       <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem; margin-top:4px;">
         <span>TOTAL:</span><span>R$ ${(sale.chargedTotal ?? sale.total).toFixed(2)}</span>
       </div>
       <div style="margin-top:8px; font-size:0.85rem; color:#555;">
         <div><b>Cliente:</b> ${escapeHtml(sale.clientName || '—')}</div>
         <div><b>Pagamento:</b> ${paymentLabels[sale.paymentMethod] || sale.paymentMethod}</div>
+        ${combinedPaymentsHtml}
         ${sale.paymentMethod === 'CARTAO_CREDITO' ? `<div><b>Parcelamento:</b> ${sale.cardInstallments || 1}x</div>` : ''}
         ${sale.paymentMethod === 'CREDITO_LOJA' ? `<div><b>Parcelamento:</b> ${sale.installments || 1}x</div><div><b>Primeiro vencimento:</b> ${new Date(sale.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}</div>` : ''}
         ${sale.paymentMethod === 'DINHEIRO' ? `<div><b>Recebido:</b> R$ ${sale.cashReceived.toFixed(2)}</div><div><b>Troco:</b> R$ ${sale.changeGiven.toFixed(2)}</div>` : ''}

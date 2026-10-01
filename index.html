@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
   <!-- App Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=20260924-2" />
+  <link rel="stylesheet" href="css/styles.css?v=20261001-1" />
 
   <!-- Firebase SDK v9 Compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -824,6 +824,22 @@
         <button class="btn btn-secondary payment-method-btn" data-payment="CREDITO_LOJA" style="grid-column:1/-1; padding:1rem; gap:8px;">
           <i class="fa-solid fa-address-card" style="font-size:1.3rem; color:var(--warning);"></i> Crédito da loja (fiado)
         </button>
+        <button class="btn btn-secondary payment-method-btn" data-payment="COMBINADO" style="grid-column:1/-1; padding:1rem; gap:8px;">
+          <i class="fa-solid fa-code-branch" style="font-size:1.3rem; color:var(--accent-primary);"></i> Combinar formas de pagamento
+        </button>
+      </div>
+
+      <div id="combined-payment-section" class="combined-payment-section" style="display:none;">
+        <h4>Distribua o valor da compra</h4>
+        <div class="combined-payment-grid">
+          <label><span><i class="fa-brands fa-pix"></i> PIX</span><input id="combined-pix" class="form-control combined-payment-input" type="number" min="0" step="0.01" value="0" oninput="updateCombinedPaymentSummary()"></label>
+          <label><span><i class="fa-solid fa-money-bill-wave"></i> Dinheiro</span><input id="combined-cash" class="form-control combined-payment-input" type="number" min="0" step="0.01" value="0" oninput="updateCombinedPaymentSummary()"></label>
+          <label><span><i class="fa-solid fa-credit-card"></i> Cartão de crédito</span><input id="combined-card-credit" class="form-control combined-payment-input" type="number" min="0" step="0.01" value="0" oninput="updateCombinedPaymentSummary()"></label>
+          <label><span><i class="fa-solid fa-credit-card"></i> Cartão de débito</span><input id="combined-card-debit" class="form-control combined-payment-input" type="number" min="0" step="0.01" value="0" oninput="updateCombinedPaymentSummary()"></label>
+          <label><span><i class="fa-solid fa-address-card"></i> Crédito da loja (fiado)</span><input id="combined-store-credit" class="form-control combined-payment-input" type="number" min="0" step="0.01" value="0" oninput="updateCombinedPaymentSummary()"></label>
+        </div>
+        <div id="combined-payment-summary" class="combined-payment-summary"><span>Distribuído: <b>R$ 0,00</b></span><span>Falta: <b>R$ 0,00</b></span></div>
+        <small>Use pelo menos duas formas de pagamento. A soma deve ser igual ao total da compra.</small>
       </div>
 
       <div id="store-credit-section" style="display:none; margin-bottom:1.25rem;">
@@ -918,13 +934,13 @@
      ======================================================== -->
 <script src="js/firebase-config.js?v=20260917-2"></script>
 <script src="js/auth.js?v=20260918-1"></script>
-<script src="js/db.js?v=20260924-2"></script>
+<script src="js/db.js?v=20261001-1"></script>
 <script src="js/scanner.js?v=20260917-2"></script>
 <script src="js/inventory.js?v=20260924-2"></script>
-<script src="js/pdv.js?v=20260918-1"></script>
-<script src="js/sales.js?v=20260918-1"></script>
-<script src="js/management.js?v=20260919-5"></script>
-<script src="js/app.js?v=20260917-2"></script>
+<script src="js/pdv.js?v=20261001-1"></script>
+<script src="js/sales.js?v=20261001-1"></script>
+<script src="js/management.js?v=20261001-1"></script>
+<script src="js/app.js?v=20261001-1"></script>
 
 <script>
   // Scanner inline no formulário de produto
