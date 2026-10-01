@@ -157,12 +157,16 @@ async function processSaleTransaction(saleData) {
 
   // 2. Dar baixa automática no estoque de cada produto vendido
   for (const item of saleData.items) {
+    if (item.stockAlreadyDeducted) continue;
     const productRef = db.collection('products').doc(item.id);
     batch.update(productRef, {
       stockQty: firebase.firestore.FieldValue.increment(-item.qty),
       updatedAt: timestamp
     });
   }
+
+  const tryOnIds = [...new Set(saleData.items.map(item => item.tryOnId).filter(Boolean))];
+  tryOnIds.forEach(tryOnId => batch.update(db.collection('tryOns').doc(tryOnId), { status: 'PURCHASED', purchaseSaleId: saleRef.id, purchasedAt: timestamp, updatedAt: timestamp }));
 
   // Commit no banco
   await batch.commit();
@@ -194,12 +198,16 @@ async function cancelSaleTransaction(saleId) {
 
     // 2. Restituir as quantidades ao estoque
     for (const item of saleData.items) {
+      if (item.stockAlreadyDeducted) continue;
       const productRef = db.collection('products').doc(item.id);
       batch.update(productRef, {
         stockQty: firebase.firestore.FieldValue.increment(item.qty),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
+
+    const tryOnIds = [...new Set((saleData.items || []).map(item => item.tryOnId).filter(Boolean))];
+    tryOnIds.forEach(tryOnId => batch.update(db.collection('tryOns').doc(tryOnId), { status: 'OVERDUE', purchaseSaleId: '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() }));
 
     // Cancelar também os lançamentos financeiros ligados à venda.
     const financialSnapshot = await db.collection('financialEntries').where('saleId', '==', saleId).get();

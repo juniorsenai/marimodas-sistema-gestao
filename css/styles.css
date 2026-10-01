@@ -1212,6 +1212,26 @@ body {
 .receivable-history-list small { color:var(--text-muted); }
 .receivable-payments-title { margin-top:1.25rem; }
 .sale-combined-details { display:flex; flex-direction:column; align-items:flex-end; gap:3px; margin:6px 0; color:var(--text-muted); font-size:.85rem; }
+.tryon-global-alert { position:fixed; right:20px; bottom:20px; z-index:1900; display:flex; align-items:center; gap:8px; padding:12px 16px; border:0; border-radius:999px; background:var(--danger); color:#fff; box-shadow:0 12px 30px rgba(239,68,68,.35); cursor:pointer; font:inherit; }
+.tryon-global-alert span { display:grid; place-items:center; min-width:23px; height:23px; padding:0 5px; border-radius:50%; background:#fff; color:var(--danger); font-weight:800; }
+.tryon-overview-card, .tryon-new-card { max-width:850px; }
+.tryon-overview-card .modal-header small, .tryon-resolve-card .modal-header small { display:block; margin-top:3px; color:var(--text-muted); }
+.tryon-record-list { display:grid; gap:9px; max-height:58vh; overflow:auto; }
+.tryon-record { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:12px; padding:12px; border:1px solid var(--border-color); border-radius:var(--radius-md); }
+.tryon-record.overdue { border-color:rgba(239,68,68,.45); background:rgba(239,68,68,.06); }
+.tryon-record small, .tryon-record p { display:block; color:var(--text-muted); margin-top:3px; }
+.tryon-rule { display:flex; gap:9px; align-items:flex-start; padding:11px; margin-bottom:12px; border:1px solid rgba(245,158,11,.3); border-radius:var(--radius-md); background:rgba(245,158,11,.08); color:var(--text-secondary); }
+.tryon-rule i { color:var(--warning); margin-top:2px; }
+.tryon-product-choices { display:grid; gap:7px; max-height:45vh; overflow:auto; }
+.tryon-product-choice { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:10px; border:1px solid var(--border-color); border-radius:var(--radius-md); cursor:pointer; }
+.tryon-product-choice:has(input:checked) { border-color:var(--accent-primary); background:rgba(236,72,153,.07); }
+.tryon-product-choice input { width:18px; height:18px; accent-color:var(--accent-primary); }
+.tryon-product-choice small { display:block; color:var(--text-muted); margin-top:3px; }
+.tryon-product-choice > strong { color:var(--accent-primary); }
+.tryon-resolve-card { max-width:720px; }
+.tryon-resolve-list { display:grid; gap:9px; margin-bottom:12px; }
+.tryon-resolve-item { display:grid; grid-template-columns:1fr minmax(170px, .55fr); align-items:center; gap:12px; padding:11px; border:1px solid var(--border-color); border-radius:var(--radius-md); }
+.tryon-resolve-item small { display:block; margin-top:3px; color:var(--text-muted); }
 .fee-rate-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:9px; }
 .fee-rate-grid .form-group { margin:0; }
 .team-cards { display:grid; gap:10px; }
@@ -1242,6 +1262,9 @@ body {
   .combined-payment-grid label:last-child { grid-column:1; }
   .receivable-client-row { grid-template-columns:1fr auto; }
   .receivable-client-row .client-actions { grid-column:1/-1; }
+  .tryon-global-alert { right:12px; bottom:82px; }
+  .tryon-record, .tryon-resolve-item { grid-template-columns:1fr; }
+  .tryon-record .badge { width:max-content; }
   .checkout-client-box, .client-profile-stats { grid-template-columns:1fr; }
   .client-birthday-editor { grid-template-columns:1fr; }
   .finance-client-picker { grid-template-columns:1fr; }

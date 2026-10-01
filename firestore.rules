@@ -28,6 +28,10 @@ service cloud.firestore {
       allow read, write: if isAuthorized();
     }
 
+    match /tryOns/{tryOnId} {
+      allow read, write: if isAuthorized();
+    }
+
     // Entradas, saídas e contas a receber compartilhadas pela loja
     match /financialEntries/{entryId} {
       allow read, write: if isAuthorized();

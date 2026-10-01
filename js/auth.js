@@ -50,6 +50,7 @@ function initAuthListener() {
       if (window.loadManagementClients) window.loadManagementClients();
       if (window.loadFinancialEntries) window.loadFinancialEntries();
       if (window.loadSystemSettings) window.loadSystemSettings();
+      if (window.loadTryOns) window.loadTryOns();
 
     } else {
       currentUser = null;

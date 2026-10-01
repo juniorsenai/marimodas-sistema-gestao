@@ -69,7 +69,7 @@ function addToCart(product) {
     return;
   }
 
-  const existingItem = cartItems.find(item => item.id === product.id);
+  const existingItem = cartItems.find(item => item.id === product.id && !item.stockAlreadyDeducted);
 
   if (existingItem) {
     if (existingItem.qty >= product.stockQty) {
@@ -80,6 +80,7 @@ function addToCart(product) {
   } else {
     cartItems.push({
       id: product.id,
+      cartKey: product.id,
       name: product.name,
       size: product.size,
       color: product.color,
@@ -104,14 +105,19 @@ async function addToCartByBarcode(barcode) {
 }
 
 // Atualizar quantidade de item no carrinho
-function updateCartItemQty(productId, delta) {
-  const item = cartItems.find(i => i.id === productId);
+function updateCartItemQty(cartKey, delta) {
+  const item = cartItems.find(i => (i.cartKey || i.id) === cartKey);
   if (!item) return;
+
+  if (item.stockAlreadyDeducted) {
+    showToast('Esta peça veio da experimentação. Resolva a devolução pelo alerta de experimentação.', 'warning');
+    return;
+  }
 
   item.qty += delta;
 
   if (item.qty <= 0) {
-    removeFromCart(productId);
+    removeFromCart(cartKey);
   } else if (item.qty > item.stockQty) {
     item.qty = item.stockQty;
     showToast("Quantidade máxima disponível em estoque atingida.", "warning");
@@ -122,13 +128,16 @@ function updateCartItemQty(productId, delta) {
 }
 
 // Remover item do carrinho
-function removeFromCart(productId) {
-  cartItems = cartItems.filter(i => i.id !== productId);
+function removeFromCart(cartKey) {
+  const item = cartItems.find(i => (i.cartKey || i.id) === cartKey);
+  if (item?.stockAlreadyDeducted) return showToast('Esta peça está vinculada à experimentação e não pode ser removida diretamente do caixa.', 'warning');
+  cartItems = cartItems.filter(i => (i.cartKey || i.id) !== cartKey);
   renderCart();
 }
 
 // Limpar carrinho
 function clearCart() {
+  if (cartItems.some(item => item.stockAlreadyDeducted)) return showToast('Finalize ou resolva as peças em experimentação antes de limpar o carrinho.', 'warning');
   if ((cartItems.length > 0 || getJewelryAmount() > 0) && confirm("Deseja limpar o carrinho e cancelar a venda atual?")) {
     cartItems = [];
     cartDiscount = 0;
@@ -180,14 +189,14 @@ function renderCart() {
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <div class="qty-controls">
-          <button class="qty-btn" onclick="updateCartItemQty('${item.id}', -1)">−</button>
+          <button class="qty-btn" onclick="updateCartItemQty('${item.cartKey || item.id}', -1)">−</button>
           <span style="font-weight:700; min-width:24px; text-align:center;">${item.qty}</span>
-          <button class="qty-btn" onclick="updateCartItemQty('${item.id}', 1)">+</button>
+          <button class="qty-btn" onclick="updateCartItemQty('${item.cartKey || item.id}', 1)">+</button>
         </div>
         <span style="font-weight:700; min-width:64px; text-align:right; color:var(--accent-primary);">
           R$ ${(item.price * item.qty).toFixed(2)}
         </span>
-        <button class="btn btn-danger btn-sm btn-icon" onclick="removeFromCart('${item.id}')">
+        <button class="btn btn-danger btn-sm btn-icon" onclick="removeFromCart('${item.cartKey || item.id}')">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -256,7 +265,7 @@ function openCheckoutModal() {
   }
   if (window.refreshStoreCreditClients) refreshStoreCreditClients();
   const saleClient = document.getElementById('sale-client');
-  if (saleClient) saleClient.value = '';
+  if (saleClient) saleClient.value = window.tryOnCheckoutClientId || '';
   const quickClientForm = document.getElementById('quick-client-form');
   if (quickClientForm) { quickClientForm.reset(); quickClientForm.style.display = 'none'; }
   updateStoreCreditInstallments(total);
@@ -471,7 +480,9 @@ async function finalizeSale() {
         color: i.color,
         qty: i.qty,
         price: i.price,
-        total: i.price * i.qty
+        total: i.price * i.qty,
+        stockAlreadyDeducted: i.stockAlreadyDeducted === true,
+        tryOnId: i.tryOnId || ''
       })),
       subtotal,
       jewelryAmount,
@@ -512,6 +523,7 @@ async function finalizeSale() {
     cartItems = [];
     cartDiscount = 0;
     document.getElementById('cart-jewelry').value = 0;
+    window.tryOnCheckoutClientId = '';
     renderCart();
 
     showToast("Venda finalizada com sucesso! 🎉", "success");
