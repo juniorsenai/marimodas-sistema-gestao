@@ -17,7 +17,9 @@ function getInventoryMobileView() {
 function applyInventoryMobileView() {
   const view = getInventoryMobileView();
   const list = document.getElementById('products-mobile-list');
-  if (list) list.classList.toggle('view-list', view === 'list');
+  const inventorySection = document.getElementById('section-inventory');
+  if (list) list.classList.remove('view-list');
+  if (inventorySection) inventorySection.classList.toggle('inventory-list-mode', view === 'list');
   ['cards', 'list'].forEach(option => {
     const button = document.getElementById(`inventory-view-${option}`);
     if (button) {
