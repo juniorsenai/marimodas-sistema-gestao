@@ -1250,6 +1250,8 @@ body {
   .compact-stats { grid-template-columns:1fr; }
 }
 @media (max-width: 600px) {
+  .receipt-modal-footer { flex-wrap:wrap; }
+  .receipt-modal-footer .btn { flex:1 1 100%; }
   .feature-list { grid-template-columns:1fr; }
   .management-tab { padding:10px 12px; }
   .inventory-capital-control { grid-template-columns:1fr; }

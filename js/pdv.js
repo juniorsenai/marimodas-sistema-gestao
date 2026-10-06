@@ -5,6 +5,7 @@
 
 let cartItems = [];
 let cartDiscount = 0;
+let currentReceiptSale = null;
 
 // Renderizar o catálogo de produtos no PDV com busca
 function renderPDVCatalog(filterText = '') {
@@ -542,6 +543,7 @@ async function finalizeSale() {
 function openReceiptModal(sale) {
   const modal = document.getElementById('receipt-modal');
   const receiptContent = document.getElementById('printable-receipt');
+  currentReceiptSale = sale;
 
   const paymentLabels = {
     'DINHEIRO': '💵 Dinheiro',
@@ -606,6 +608,69 @@ function openReceiptModal(sale) {
 
 function closeReceiptModal() {
   document.getElementById('receipt-modal').classList.remove('active');
+}
+
+async function generateReceiptPdfFile() {
+  const receipt = document.getElementById('printable-receipt');
+  if (!receipt || !window.html2canvas || !window.jspdf?.jsPDF) throw new Error('Gerador de PDF indisponível.');
+
+  const canvas = await window.html2canvas(receipt, {
+    backgroundColor: '#ffffff',
+    scale: 2,
+    useCORS: true,
+    logging: false
+  });
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 12;
+  const availableWidth = pageWidth - margin * 2;
+  const availableHeight = pageHeight - margin * 2;
+  const ratio = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
+  const imageWidth = canvas.width * ratio;
+  const imageHeight = canvas.height * ratio;
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', (pageWidth - imageWidth) / 2, margin, imageWidth, imageHeight, undefined, 'FAST');
+
+  const order = String(currentReceiptSale?.saleId || 'recibo').slice(0, 8).toUpperCase();
+  return new File([pdf.output('blob')], `MARIMODAS-recibo-${order}.pdf`, { type: 'application/pdf' });
+}
+
+async function shareReceiptWithClient() {
+  const sale = currentReceiptSale;
+  if (!sale) return showToast('Não foi possível localizar os dados do recibo.', 'danger');
+  const client = getManagementClients().find(item => item.id === sale.clientId);
+  if (!client?.phone) return showToast('A cliente desta venda não possui WhatsApp cadastrado.', 'warning');
+
+  const button = document.getElementById('btn-share-receipt');
+  if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparando PDF...'; }
+  try {
+    const file = await generateReceiptPdfFile();
+    const order = String(sale.saleId || '').slice(0, 8).toUpperCase();
+    const message = `Olá, ${client.name}! Segue o recibo da sua compra na Mari Modas${order ? ` (pedido #${order})` : ''}. Obrigada pela preferência! 💕`;
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Recibo Mari Modas', text: message });
+      return;
+    }
+
+    const downloadUrl = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 60000);
+    window.open(`${getClientWhatsAppUrl(client.phone)}?text=${encodeURIComponent(`${message}\n\nO PDF foi baixado neste aparelho. Anexe o arquivo ${file.name} nesta conversa.`)}`, '_blank', 'noopener');
+    showToast('PDF baixado. Selecione-o no WhatsApp para concluir o envio.', 'info', 7000);
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      console.error('Erro ao compartilhar recibo:', error);
+      showToast('Não foi possível gerar ou compartilhar o recibo.', 'danger');
+    }
+  } finally {
+    if (button) { button.disabled = false; button.innerHTML = '<i class="fa-brands fa-whatsapp"></i> Enviar para cliente'; }
+  }
 }
 
 function printReceipt() {

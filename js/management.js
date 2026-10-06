@@ -137,7 +137,7 @@ function renderClients() {
   return `
     <div class="birthday-panel table-container">
       <div class="birthday-panel-heading"><div><h3><i class="fa-solid fa-cake-candles"></i> Aniversariantes de ${monthName}</h3><p>${birthdayClients.length ? `${birthdayClients.length} cliente(s) para lembrar e preparar promoções.` : 'Nenhum aniversariante cadastrado neste mês.'}</p></div><span>${birthdayClients.length}</span></div>
-      ${birthdayClients.length ? `<div class="birthday-list">${birthdayClients.map(client => `<div class="birthday-client"><div class="birthday-day">${String(getBirthdayParts(client.birthDate).day).padStart(2, '0')}</div><div><b>${escapeHtml(client.name)}</b><small>${formatBirthDate(client.birthDate)}${isBirthdayToday(client.birthDate) ? ' · Hoje! 🎉' : ''}</small></div>${client.phone ? `<button class="btn btn-success btn-sm" onclick="openClientWhatsApp('${client.id}')" title="Enviar promoção pelo WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}</div>`).join('')}</div>` : ''}
+      ${birthdayClients.length ? `<div class="birthday-list">${birthdayClients.map(client => `<div class="birthday-client"><div class="birthday-day">${String(getBirthdayParts(client.birthDate).day).padStart(2, '0')}</div><div><b>${escapeHtml(client.name)}</b><small>${formatBirthDate(client.birthDate)}${isBirthdayToday(client.birthDate) ? ' · Hoje! 🎉' : ''}</small></div>${client.phone ? `<button class="btn btn-success btn-sm" onclick="openBirthdayWhatsApp('${client.id}')" title="Enviar mensagem de aniversário pelo WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>` : ''}</div>`).join('')}</div>` : ''}
     </div>
     <div class="management-grid">
       <form class="table-container management-form" onsubmit="saveClient(event)">
@@ -245,6 +245,22 @@ function openClientWhatsApp(id) {
   const client = getManagementClients().find(item => item.id === id);
   if (!client?.phone) return showToast('Este cliente não possui WhatsApp cadastrado.', 'warning');
   window.open(getClientWhatsAppUrl(client.phone), '_blank', 'noopener');
+}
+
+function openBirthdayWhatsApp(id) {
+  const client = getManagementClients().find(item => item.id === id);
+  if (!client?.phone) return showToast('Este cliente não possui WhatsApp cadastrado.', 'warning');
+  const message = `🎉 Feliz aniversário, ${client.name}! 🥳💖
+
+Nós da Mari Modas desejamos que seu novo ciclo seja cheio de alegrias, conquistas e momentos especiais! ✨
+
+E como aniversário merece carinho, preparamos um mimo especial para você. 🎁💕 Quando puder, passe aqui na loja para buscar o seu presentinho!
+
+Será um prazer receber você novamente. 🥰
+
+Com carinho,
+Equipe Mari Modas 💕`;
+  window.open(`${getClientWhatsAppUrl(client.phone)}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
 }
 
 function getPaymentLabel(method) {

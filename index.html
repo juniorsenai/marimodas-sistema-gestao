@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
   <!-- App Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=20261001-4" />
+  <link rel="stylesheet" href="css/styles.css?v=20261006-1" />
 
   <!-- Firebase SDK v9 Compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -27,6 +27,8 @@
 
   <!-- JsBarcode (geração de código de barras para etiquetas) -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -918,8 +920,11 @@
         <!-- Preenchido dinamicamente pelo js/pdv.js -->
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer receipt-modal-footer">
       <button class="btn btn-secondary" onclick="closeReceiptModal()">Fechar</button>
+      <button class="btn btn-success" id="btn-share-receipt" onclick="shareReceiptWithClient()">
+        <i class="fa-brands fa-whatsapp"></i> Enviar para cliente
+      </button>
       <button class="btn btn-primary" onclick="printReceipt()">
         <i class="fa-solid fa-print"></i> Imprimir Recibo
       </button>
@@ -951,9 +956,9 @@
 <script src="js/db.js?v=20261001-4"></script>
 <script src="js/scanner.js?v=20260917-2"></script>
 <script src="js/inventory.js?v=20260924-2"></script>
-<script src="js/pdv.js?v=20261001-4"></script>
+<script src="js/pdv.js?v=20261006-1"></script>
 <script src="js/sales.js?v=20261001-3"></script>
-<script src="js/management.js?v=20261001-3"></script>
+<script src="js/management.js?v=20261006-1"></script>
 <script src="js/tryons.js?v=20261001-4"></script>
 <script src="js/app.js?v=20261001-3"></script>
 
