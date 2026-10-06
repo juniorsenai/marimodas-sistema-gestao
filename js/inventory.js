@@ -9,6 +9,30 @@ let currentProductImage = '';
 let nfeImportDraft = [];
 let nfeImportInfo = {};
 
+function getInventoryMobileView() {
+  try { return localStorage.getItem('marimodas_inventory_view') === 'list' ? 'list' : 'cards'; }
+  catch (_) { return 'cards'; }
+}
+
+function applyInventoryMobileView() {
+  const view = getInventoryMobileView();
+  const list = document.getElementById('products-mobile-list');
+  if (list) list.classList.toggle('view-list', view === 'list');
+  ['cards', 'list'].forEach(option => {
+    const button = document.getElementById(`inventory-view-${option}`);
+    if (button) {
+      const active = option === view;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
+  });
+}
+
+function setInventoryMobileView(view) {
+  try { localStorage.setItem('marimodas_inventory_view', view === 'list' ? 'list' : 'cards'); } catch (_) {}
+  applyInventoryMobileView();
+}
+
 function openNfeXmlFilePicker() {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.xml,text/xml,application/xml';
@@ -121,6 +145,7 @@ function renderProductsUI() {
   const sizeFilter = document.getElementById('inventory-size-filter');
   
   if (!tableBody) return;
+  applyInventoryMobileView();
 
   const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
   const categoryVal = categoryFilter ? categoryFilter.value : '';
