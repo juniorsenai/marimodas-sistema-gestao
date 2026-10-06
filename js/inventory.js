@@ -115,6 +115,7 @@ function loadProducts() {
 // Renderizar Tabela/Grade de Produtos com Filtros
 function renderProductsUI() {
   const tableBody = document.getElementById('products-table-body');
+  const mobileList = document.getElementById('products-mobile-list');
   const searchInput = document.getElementById('inventory-search');
   const categoryFilter = document.getElementById('inventory-category-filter');
   const sizeFilter = document.getElementById('inventory-size-filter');
@@ -138,6 +139,7 @@ function renderProductsUI() {
   });
 
   tableBody.innerHTML = '';
+  if (mobileList) mobileList.innerHTML = '';
 
   if (filteredProducts.length === 0) {
     tableBody.innerHTML = `
@@ -148,6 +150,7 @@ function renderProductsUI() {
         </td>
       </tr>
     `;
+    if (mobileList) mobileList.innerHTML = `<div class="inventory-mobile-empty"><i class="fa-solid fa-shirt"></i><span>Nenhum produto encontrado.</span></div>`;
     return;
   }
 
@@ -192,6 +195,34 @@ function renderProductsUI() {
       </td>
     `;
     tableBody.appendChild(row);
+
+    if (mobileList) {
+      const card = document.createElement('article');
+      card.className = `inventory-mobile-card ${isLowStock ? 'low-stock' : ''}`;
+      card.innerHTML = `
+        <div class="inventory-mobile-heading">
+          ${p.imageUrl ? `<img src="${escapeHtml(p.imageUrl)}" alt="Foto de ${escapeHtml(p.name)}" class="inventory-mobile-photo">` : '<div class="inventory-mobile-photo placeholder"><i class="fa-solid fa-shirt"></i></div>'}
+          <div class="inventory-mobile-title">
+            <h3>${escapeHtml(p.name)}</h3>
+            <span class="inventory-mobile-code">Código: ${escapeHtml(p.barcode || '-')}</span>
+            ${p.barcodeGenerated ? '<span class="inventory-mobile-generated"><i class="fa-solid fa-wand-magic-sparkles"></i> Código gerado pelo sistema</span>' : ''}
+          </div>
+        </div>
+        <div class="inventory-mobile-details">
+          <div><span>Categoria</span><strong>${escapeHtml(p.category || 'Geral')}</strong></div>
+          <div><span>Tamanho</span><strong>${escapeHtml(p.size || 'M')}</strong></div>
+          <div><span>Cor</span><strong><i class="inventory-mobile-color" style="background-color:${getColorHex(p.color)}"></i>${escapeHtml(p.color || 'Padrão')}</strong></div>
+          <div><span>Custo</span><strong>R$ ${(p.costPrice || 0).toFixed(2)}</strong></div>
+          <div><span>Preço de venda</span><strong class="inventory-mobile-price">R$ ${(p.sellPrice || 0).toFixed(2)}</strong></div>
+          <div><span>Em estoque</span><strong class="inventory-mobile-stock ${isLowStock ? 'danger' : 'success'}">${p.stockQty} unidade(s)${isLowStock ? ' · Baixo' : ''}</strong></div>
+        </div>
+        <div class="inventory-mobile-actions">
+          <button class="btn btn-secondary" onclick="openPrintLabelModal('${p.id}')"><i class="fa-solid fa-barcode"></i> Etiqueta</button>
+          <button class="btn btn-secondary" onclick="openProductModal('${p.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+          <button class="btn btn-danger" onclick="confirmDeleteProduct('${p.id}')"><i class="fa-solid fa-trash"></i> Excluir</button>
+        </div>`;
+      mobileList.appendChild(card);
+    }
   });
 }
 
@@ -355,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Confirmar exclusão
 async function confirmDeleteProduct(id, name) {
+  name = name || allProducts.find(product => product.id === id)?.name || 'Produto';
   if (confirm(`Deseja realmente excluir o produto "${name}" do estoque?`)) {
     try {
       await deleteProduct(id);
