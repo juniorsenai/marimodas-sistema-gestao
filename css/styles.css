@@ -1124,6 +1124,8 @@ body {
   .inventory-mobile-empty { display:flex; flex-direction:column; align-items:center; gap:10px; padding:2rem; border:1px solid var(--border-color); border-radius:var(--radius-lg); color:var(--text-muted); font-size:1.1rem; }
   .inventory-mobile-empty i { font-size:2rem; }
 }
+.btn-warning { background:var(--warning); color:#1f2937; box-shadow:var(--shadow-sm); }
+.btn-warning:hover { filter:brightness(1.08); transform:translateY(-1px); }
 
 
 /* Gestão completa */
@@ -1256,6 +1258,38 @@ body {
 .receivable-history-list small { color:var(--text-muted); }
 .receivable-payments-title { margin-top:1.25rem; }
 .sale-combined-details { display:flex; flex-direction:column; align-items:flex-end; gap:3px; margin:6px 0; color:var(--text-muted); font-size:.85rem; }
+.sale-exchange-count { display:block; margin-top:5px; color:var(--warning); font-weight:700; }
+.exchange-modal-card { max-width:1050px; }
+.exchange-modal-card .modal-header small { display:block; margin-top:4px; color:var(--text-muted); }
+.exchange-deadline { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding:12px; border:1px solid rgba(245,158,11,.35); border-radius:var(--radius-md); background:rgba(245,158,11,.08); color:var(--text-secondary); }
+.exchange-deadline i { color:var(--warning); font-size:1.2rem; }
+.exchange-columns { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.exchange-columns section { min-width:0; }
+.exchange-columns h4 { margin-bottom:3px; }
+.exchange-columns h4 small { color:var(--text-muted); font-weight:500; }
+.exchange-help { margin-bottom:10px; color:var(--text-muted); font-size:.86rem; }
+.exchange-return-list, .exchange-product-list { display:grid; gap:8px; max-height:330px; overflow:auto; }
+.exchange-item { display:grid; grid-template-columns:minmax(0,1fr) 82px; align-items:center; gap:10px; padding:11px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:rgba(15,23,42,.25); }
+.exchange-item b, .exchange-item small { display:block; }
+.exchange-item small { margin-top:3px; color:var(--text-muted); }
+.exchange-item input { min-width:0; padding:9px; text-align:center; }
+.exchange-product { grid-template-columns:minmax(0,1fr) auto 75px; }
+.exchange-product > strong { color:var(--accent-primary); }
+.exchange-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:18px; }
+.exchange-summary > div { display:flex; flex-direction:column; gap:4px; padding:13px; border:1px solid var(--border-color); border-radius:var(--radius-md); }
+.exchange-summary span { color:var(--text-secondary); font-size:.85rem; }
+.exchange-summary strong { font-size:1.25rem; }
+.exchange-difference.pay strong { color:var(--warning); }
+.exchange-difference.refund strong { color:var(--success); }
+.exchange-payment-field { max-width:430px; margin:14px 0 0 auto; }
+.sale-detail-actions { display:flex; justify-content:flex-end; margin-top:15px; }
+.exchange-expired-notice { margin-top:15px; color:var(--text-muted); text-align:right; font-size:.9rem; }
+.sale-exchange-history { margin-top:18px; padding:15px; border:1px solid var(--border-color); border-radius:var(--radius-md); text-align:left; }
+.sale-exchange-history h4 { margin-bottom:10px; }
+.sale-exchange-history h4 i { color:var(--warning); margin-right:5px; }
+.sale-exchange-history > div { display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--border-color); }
+.sale-exchange-history small { display:block; margin-top:3px; color:var(--text-muted); }
+.sale-exchange-history strong { color:var(--warning); white-space:nowrap; }
 .tryon-global-alert { position:fixed; right:20px; bottom:20px; z-index:1900; display:flex; align-items:center; gap:8px; padding:12px 16px; border:0; border-radius:999px; background:var(--danger); color:#fff; box-shadow:0 12px 30px rgba(239,68,68,.35); cursor:pointer; font:inherit; }
 .tryon-global-alert span { display:grid; place-items:center; min-width:23px; height:23px; padding:0 5px; border-radius:50%; background:#fff; color:var(--danger); font-weight:800; }
 .tryon-overview-card, .tryon-new-card { max-width:850px; }
@@ -1294,6 +1328,12 @@ body {
   .compact-stats { grid-template-columns:1fr; }
 }
 @media (max-width: 600px) {
+  .exchange-columns, .exchange-summary { grid-template-columns:1fr; }
+  .exchange-return-list, .exchange-product-list { max-height:42vh; }
+  .exchange-product { grid-template-columns:minmax(0,1fr) 75px; }
+  .exchange-product > strong { grid-column:1; grid-row:2; }
+  .exchange-product > input { grid-column:2; grid-row:1/3; }
+  .sale-detail-actions .btn { width:100%; }
   .receipt-modal-footer { flex-wrap:wrap; }
   .receipt-modal-footer .btn { flex:1 1 100%; }
   .feature-list { grid-template-columns:1fr; }

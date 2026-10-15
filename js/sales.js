@@ -78,9 +78,10 @@ function renderSalesUI() {
       ? sale.createdAt.toDate().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
       : '—';
 
+    const exchangeCount = Array.isArray(sale.exchanges) ? sale.exchanges.length : 0;
     const statusBadge = sale.status === 'CANCELADA'
       ? `<span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Cancelada</span>`
-      : `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Concluída</span>`;
+      : `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Concluída</span>${exchangeCount ? `<small class="sale-exchange-count"><i class="fa-solid fa-rotate"></i> ${exchangeCount} troca${exchangeCount > 1 ? 's' : ''}</small>` : ''}`;
 
     const itemsCount = (sale.items || []).reduce((s, i) => s + i.qty, 0);
 
@@ -97,6 +98,11 @@ function renderSalesUI() {
           <button class="btn btn-secondary btn-sm" onclick="openSaleDetailsModal('${sale.id || sale.saleId}')" title="Ver Detalhes">
             <i class="fa-solid fa-eye"></i>
           </button>
+          ${sale.status !== 'CANCELADA' && typeof canExchangeSale === 'function' && canExchangeSale(sale) ? `
+            <button class="btn btn-warning btn-sm" onclick="openExchangeModal('${sale.id || sale.saleId}')" title="Trocar ou devolver item">
+              <i class="fa-solid fa-rotate"></i>
+            </button>
+          ` : ''}
           ${sale.status !== 'CANCELADA' ? `
             <button class="btn btn-danger btn-sm" onclick="handleCancelSale('${sale.id || sale.saleId}')" title="Cancelar Venda">
               <i class="fa-solid fa-ban"></i>
@@ -210,6 +216,8 @@ function openSaleDetailsModal(saleId) {
         </p>
       ` : ''}
     </div>
+    ${typeof renderSaleExchangeHistory === 'function' ? renderSaleExchangeHistory(sale) : ''}
+    ${sale.status !== 'CANCELADA' && typeof canExchangeSale === 'function' && canExchangeSale(sale) ? `<div class="sale-detail-actions"><button class="btn btn-warning" onclick="closeSaleDetailModal(); openExchangeModal('${sale.id || sale.saleId}')"><i class="fa-solid fa-rotate"></i> Trocar ou devolver peça</button></div>` : sale.status !== 'CANCELADA' ? `<p class="exchange-expired-notice"><i class="fa-solid fa-calendar-xmark"></i> Prazo de troca de 7 dias encerrado.</p>` : ''}
   `;
 
   modal.classList.add('active');
